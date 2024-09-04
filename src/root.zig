@@ -24,12 +24,29 @@ pub fn uint(UintT: type, base_: UintT, digit_: UintT) !type {
 
 	/// Valid integer shall be 0<=n<=INT_MAX.
 	pub const INT_MAX = INT_END_-1;
+
+	/// Perform a right-rotate for one digit.
+	pub fn rot(x: UintT) UintT {
+	    const least_digit = x % Self.base;
+	    const head_digits = x / Self.base;
+	    const left_shift_mult = Self.INT_END / Self.base;
+	    return head_digits + least_digit * left_shift_mult;
+	}
     };
 }
+
+// XXX: Any alternatves?
+// pub const DisMath = anytype; // @ReturnType(uint);
 
 test uint {
     const myMath = try uint(DEFAULT_UINT_T, DEFAULT_BASE, DEFAULT_DIGIT);
     try std.testing.expect(myMath.INT_MAX == 59048);
+    try std.testing.expect(myMath.INT_END == 59049);
+
+    try std.testing.expect(myMath.rot(1) == 19683);
+    try std.testing.expect(myMath.rot(19683) == 19683/3);
+    try std.testing.expect(myMath.rot(2) == 19683 * 2);
+    try std.testing.expect(myMath.rot(4) == 19683 + 1);
 }
 
 /// UintT types unsigned integer.
