@@ -50,7 +50,7 @@ pub fn factory(UintT: type, base: UintT, digit: UintT) !type {
 	pub var d: UintT = undefined;
 
 	/// Memory
-	pub var mem: [0:Self.INT_END]UintT = .{0};
+	pub var mem: [Self.INT_END]UintT = .{0};
 
 	// TODO
     }; // struct
