@@ -1,62 +1,69 @@
 //! Math type in the Dis language.
+//! Or a data type in the Dis language.
 
 const std = @import("std");
 
-/// Dis data type factory.
-pub const Data = uint;
-
-/// Dis data type creator.
-/// Returns lots of useful functions and members.
-pub fn uint(comptime UintT: type, base_: UintT, digit_: UintT) type {
+/// Arithmetic operators for Dis data type.
+/// Specified base and specified digits of unsigned integers.
+pub fn Data(comptime UintT: type, base_: UintT, digit_: UintT) type {
     // Domain things
     if ( @typeInfo(UintT) != .Int ) @compileError("UintT must be unsigned integer");
     if ( std.math.minInt(UintT) < 0 ) @compileError("UintT must be unsigned integer");
+    if ( base_ < 1 ) @compileError("base_ must be a positive integer");
     const INT_END_ = std.math.powi(UintT, base_, digit_) catch @compileError("END overflowed");
 
     return struct {
 	const Self = @This();
-	pub const base = base_;
-	pub const digit = digit_;
-	pub const Type = UintT;
 
-        pub const INT_END = INT_END_;
-	pub const END = INT_END;
+	/// Explained as is.
+	pub const base: T = base_;
+	pub const digit: T = digit_;
 
-	/// Valid integer shall be 0<=n<=INT_MAX.
-	pub const INT_MAX = INT_END_-1;
-	pub const MAX = INT_MAX;
+	/// Type.
+	pub const T = UintT;
 
-	/// Idk if necessary.
-	pub fn is_valid_value(x: UintT) bool {
-	    return 0 <= x and x <= INT_MAX;
+	/// std.math.powi(T, base, digit), which MAX + 1 == END.
+	/// E.g. powi(u16, 3, 10) == 59049.
+	pub const END: T = INT_END_;
+
+	/// Maximum value that can be represented in given base and given digits.
+	pub const MAX: T = END - 1;
+
+	/// In specified base and specified digits.
+	pub const is_representable = is_valid_value;
+	pub fn is_valid_value(x: T) bool {
+	    return 0 <= x and x <= MAX;
 	}
 
-	/// Perform a right-rotate for one digit.
-	pub fn rot(x: UintT) UintT {
-	    const least_digit = x % Self.base;
-	    const head_digits = x / Self.base;
-	    const left_shift_mult = Self.INT_END / Self.base;
+	/// Rotate a value to right by one digit.
+	/// E.g. 00000_00001t to 10000_00000t.
+	pub fn rot(x: T) T {
+	    const least_digit = x % base;
+	    const head_digits = x / base;
+	    const left_shift_mult = END / base;
 	    return head_digits + least_digit * left_shift_mult;
 	}
 
         /// For each digit, do subtraction without carry.
-	pub fn opr(x: UintT, y: UintT) UintT {
+	pub fn opr(x: T, y: T) T {
 	    if ( x == 0 and y == 0 ) return 0;
-	    return base * opr(x / base, y / base) + try opr_(x % base, y % base);
+	    return base * opr(x / base, y / base) + opr_(x % base, y % base);
 	}
 
 	/// x, y is digit. Digit-subtraction.
-	inline fn opr_(x: UintT, y: UintT) !UintT {
-	    std.debug.assert(x < base);
-	    std.debug.assert(y < base);
+	inline fn opr_(x: T, y: T) T {
+	    if ( x >= base ) unreachable;
+	    if ( y >= base ) unreachable;
 	    return (base + x - y) % base;
 	}
 
-	pub fn incr(x: UintT) UintT {
-	    return (x + 1) % INT_END;
+	/// Add one to x. Overwrapped.
+	pub fn incr(x: T) T {
+	    return (x + 1) % END;
 	}
 
-	pub fn increment(x: UintT, y: UintT) UintT {
+	/// Add y to x. Overwrapped.
+	pub fn increment(x: T, y: T) T {
 	    // XXX: efficient algorithm?
 	    if ( y == 0 ) return x;
 	    return increment(incr(x), y-1);
@@ -65,16 +72,13 @@ pub fn uint(comptime UintT: type, base_: UintT, digit_: UintT) type {
 }
 
 /// Official Dis specification constants.
-pub const DEFAULT_BASE = 3;
-pub const DEFAULT_DIGIT = 10;
-pub const DEFAULT_UINT_T = u16;
-pub const DefaultData = uint(DEFAULT_UINT_T, DEFAULT_BASE, DEFAULT_DIGIT);
+pub const DefaultData = Data(u16, 3, 10);
 
 test DefaultData {
     try std.testing.expect(DefaultData.base == 3);
     try std.testing.expect(DefaultData.digit == 10);
-    try std.testing.expect(DefaultData.INT_MAX == 59048);
-    try std.testing.expect(DefaultData.INT_END == 59049);
+    try std.testing.expect(DefaultData.MAX == 59048);
+    try std.testing.expect(DefaultData.END == 59049);
 }
 
 test "DefaultData.rot" {
@@ -125,7 +129,7 @@ test "DefaultData.increment" {
 }
 
 test "Custom data type: base-7 6-digit" {
-    const Math7_6 = uint(u17, 7, 6);
+    const Math7_6 = Data(u17, 7, 6);
     const expect = std.testing.expect;
 
     try expect(Math7_6.END == 117_649);
