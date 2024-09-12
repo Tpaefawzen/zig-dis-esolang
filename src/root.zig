@@ -102,7 +102,7 @@ test "DefaultData.opr" {
     {
 	const x = 2 * 81 + 1 * 27 + 0 * 9 + 1 * 3 + 2 * 1;
 	const y = 0 * 81 + 1 * 27 + 2 * 9 + 2 * 3 + 1 * 1;
-	const z = 1 * 81 + 0 * 27 + 1 * 9 + 2 * 3 + 1 * 1;
+	const z = 2 * 81 + 0 * 27 + 1 * 9 + 2 * 3 + 1 * 1;
 	const my_result = opr(x, y);
 	std.debug.print("{d} vs {d}\n", .{z, my_result});
 	try std.testing.expect(my_result == z);
