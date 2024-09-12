@@ -2,14 +2,17 @@
 
 const std = @import("std");
 
-/// Dis data type creator.
-pub fn uint(UintT: type, base_: UintT, digit_: UintT) !type {
-    // Domain things
-    if ( @typeInfo(UintT) != .Int or std.math.minInt(UintT) < 0 ) @compileError("UintT must be unsigned integer");
-    if ( base_ <= 0 ) @compileError("base_ must be >0");
-    if ( digit_ <= 0 ) @compileError("digit_ must be >0");
+/// Dis data type factory.
+pub const Data = uint;
 
-    const INT_END_ = try std.math.powi(UintT, base_, digit_);
+/// Dis data type creator.
+/// Returns lots of useful functions and members.
+pub fn uint(comptime UintT: type, base_: UintT, digit_: UintT) type {
+    // Domain things
+    if ( @typeInfo(UintT) != .Int ) @compileError("UintT must be unsigned integer");
+    if ( std.math.minInt(UintT) < 0 ) @compileError("UintT must be unsigned integer");
+    const INT_END_ = std.math.powi(UintT, base_, digit_) catch @compileError("END overflowed");
+
     return struct {
 	const Self = @This();
 	pub const base = base_;
@@ -17,9 +20,11 @@ pub fn uint(UintT: type, base_: UintT, digit_: UintT) !type {
 	pub const Type = UintT;
 
         pub const INT_END = INT_END_;
+	pub const END = INT_END;
 
 	/// Valid integer shall be 0<=n<=INT_MAX.
 	pub const INT_MAX = INT_END_-1;
+	pub const MAX = INT_MAX;
 
 	/// Idk if necessary.
 	pub fn is_valid_value(x: UintT) bool {
@@ -52,6 +57,7 @@ pub fn uint(UintT: type, base_: UintT, digit_: UintT) !type {
 	}
 
 	pub fn increment(x: UintT, y: UintT) UintT {
+	    // XXX: efficient algorithm?
 	    if ( y == 0 ) return x;
 	    return increment(incr(x), y-1);
 	}
@@ -62,7 +68,7 @@ pub fn uint(UintT: type, base_: UintT, digit_: UintT) !type {
 pub const DEFAULT_BASE = 3;
 pub const DEFAULT_DIGIT = 10;
 pub const DEFAULT_UINT_T = u16;
-pub const DefaultData = uint(DEFAULT_UINT_T, DEFAULT_BASE, DEFAULT_DIGIT) catch unreachable;
+pub const DefaultData = uint(DEFAULT_UINT_T, DEFAULT_BASE, DEFAULT_DIGIT);
 
 test DefaultData {
     try std.testing.expect(DefaultData.base == 3);
@@ -103,7 +109,6 @@ test "DefaultData.opr" {
 	const y = 0 * 81 + 1 * 27 + 2 * 9 + 2 * 3 + 1 * 1;
 	const z = 2 * 81 + 0 * 27 + 1 * 9 + 2 * 3 + 1 * 1;
 	const my_result = opr(x, y);
-	std.debug.print("{d} vs {d}\n", .{z, my_result});
 	try std.testing.expect(my_result == z);
     }
 }
@@ -112,4 +117,22 @@ test "DefaultData.incr" {
     try std.testing.expect(DefaultData.incr(0) == 1);
     try std.testing.expect(DefaultData.incr(59047) == 59048);
     try std.testing.expect(DefaultData.incr(59048) == 0);
+}
+
+test "DefaultData.increment" {
+    try std.testing.expect(DefaultData.increment(59048, 59048) == 59047);
+    try std.testing.expect(DefaultData.increment(2323, 65535) == (2323 + 65535 % 59049));
+}
+
+test "Custom data type: base-7 6-digit" {
+    const Math7_6 = uint(u17, 7, 6);
+    const expect = std.testing.expect;
+
+    try expect(Math7_6.END == 117_649);
+
+    try expect(Math7_6.rot(5 * 7 + 2) == 2 * try std.math.powi(u17, 7, 5) + 5);
+    try expect(Math7_6.opr(
+	    5 * 49*7 + 3 * 49 + 1 * 7 + 6 * 1,
+	    6 * 49*7 + 0 * 49 + 1 * 7 + 2 * 1)
+	==  6 * 49*7 + 3 * 49 + 0 * 7 + 4 * 1);
 }
