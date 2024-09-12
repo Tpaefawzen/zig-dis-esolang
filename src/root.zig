@@ -36,7 +36,6 @@ pub fn uint(UintT: type, base_: UintT, digit_: UintT) !type {
 
         /// For each digit, do subtraction without carry.
 	pub fn opr(x: UintT, y: UintT) UintT {
-	    std.debug.print("{d} {d}\n", .{x, y});
 	    if ( x == 0 and y == 0 ) return 0;
 	    return base * opr(x / base, y / base) + try opr_(x % base, y % base);
 	}
