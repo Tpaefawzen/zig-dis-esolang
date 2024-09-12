@@ -3,6 +3,10 @@
 /// Submodules.
 pub const math = @import("./dis-math.zig");
 
+test {
+    _ = math;
+}
+
 const std = @import("std");
 
 /// UintT types unsigned integer.
