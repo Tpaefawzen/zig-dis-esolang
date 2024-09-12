@@ -1,8 +1,9 @@
 //! Programming language Dis implementation
 
-const std = @import("std");
+/// Submodules.
+pub const math = @import("./dis-math.zig");
 
-const math = @import("./dis-math.zig");
+const std = @import("std");
 
 /// UintT types unsigned integer.
 /// Create a virtual machine of Dis.
