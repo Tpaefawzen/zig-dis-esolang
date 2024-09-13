@@ -1,6 +1,6 @@
 //! Programming language Dis implementation
 
-/// Submodules.
+// Submodules.
 pub const math = @import("./dis-math.zig");
 pub const vm = @import("./dis-vm.zig");
 
