@@ -10,6 +10,7 @@ pub fn Data(comptime T_: type, comptime base_: T_, comptime digit_: T_) type {
     if ( @typeInfo(T_) != .Int ) @compileError("T_ must be unsigned integer");
     if ( std.math.minInt(T_) < 0 ) @compileError("T_ must be unsigned integer");
     if ( base_ <= 1 ) @compileError("base_ must be >=2");
+    if ( digit_ == 0 ) @compileError("digit_ must be >=1");
 
     return struct {
 	const Self = @This();
@@ -53,7 +54,7 @@ pub fn Data(comptime T_: type, comptime base_: T_, comptime digit_: T_) type {
 	/// In specified base and specified digits.
 	pub const is_representable = is_valid_value;
 	pub fn is_valid_value(x: T) bool {
-	    return 0 <= x and x <= MAX;
+	    return x <= MAX;
 	}
 
 	/// Rotate a value to right by one digit.
@@ -93,9 +94,25 @@ pub fn Data(comptime T_: type, comptime base_: T_, comptime digit_: T_) type {
 
 	/// Add y to x. Overwrapped.
 	pub fn increment(x: T, y: T) T {
-	    // XXX: efficient algorithm?
-	    if ( y == 0 ) return x;
-	    return increment(incr(x), y-1);
+	    const x0 = x % END;
+	    const y0 = y % END;
+
+	    const z0 = @addWithOverflow(x0, y0);
+	    if ( z0[1] == 0 ) return z0[0] % END;
+
+	    return (x0 - (END - y0)) % END;
+	}
+
+	comptime {
+	    const x = std.math.maxInt(T);
+	    const z = increment(x, x);
+	    _ = z;
+	    const z2 = increment(MAX, MAX);
+	    _ = z2;
+	    // @compileLog(T, base, digit, END_T, MAX, x, z);
+	    // @compileLog(T, base, digit, END_T, MAX, increment(x, MAX));
+	    // @compileLog(T, base, digit, END_T, MAX, increment(MAX, x));
+	    // @compileLog(T, base, digit, END_T, MAX, increment(MAX, MAX));
 	}
     };
 }
