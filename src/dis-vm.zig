@@ -190,7 +190,7 @@ test DefaultVm {
     try std.testing.expect(vm.mem[429] == 0);
 }
 
-test "Vm().step" {
+test "Vm" {
     var vm1 = DefaultVm{};
     _ = try vm1.step();
     _ = try vm1.step();
@@ -209,4 +209,25 @@ test "Vm().step" {
     _ = try vm1.step();
     try std.testing.expect(vm1.c == 4);
     try std.testing.expect(vm1.d == 43);
+
+    _ = try vm1.step();
+    try std.testing.expect(vm1.c == 5);
+    try std.testing.expect(vm1.d == 44);
+
+    vm1.d = 59048;
+    _ = try vm1.step();
+    try std.testing.expect(vm1.c == 6);
+    try std.testing.expect(vm1.d == 0);
+
+    fn acd(vm: anytype, a: anytype, c: anytype, d: anytype) !void {
+	try std.testing.expect(vm.a == a);
+	try std.testing.expect(vm.c == c);
+	try std.testing.expect(vm.d == d);
+    }
+
+    vm1.mem[0] = 62;
+    vm1.mem[6] = 62;
+    _ = try vm1.step();
+    acd(19683*2+20, 1, 7);
+    try std.testing.expect(vm1.mem[0] == 19683*2+20);
 }
