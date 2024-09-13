@@ -3,14 +3,13 @@
 
 const std = @import("std");
 
-/// Arithmetic operators for Dis data type.
+/// A namespace of arithmetic operators for Dis data type.
 /// Specified base and specified digits of unsigned integers.
-pub fn Data(comptime UintT: type, base_: UintT, digit_: UintT) type {
+pub fn Data(comptime T_: type, comptime base_: T_, comptime digit_: T_) type {
     // Domain things
-    if ( @typeInfo(UintT) != .Int ) @compileError("UintT must be unsigned integer");
-    if ( std.math.minInt(UintT) < 0 ) @compileError("UintT must be unsigned integer");
-    if ( base_ < 1 ) @compileError("base_ must be a positive integer");
-    const INT_END_ = std.math.powi(UintT, base_, digit_) catch @compileError("END overflowed");
+    if ( @typeInfo(T_) != .Int ) @compileError("T_ must be unsigned integer");
+    if ( std.math.minInt(T_) < 0 ) @compileError("T_ must be unsigned integer");
+    if ( base_ <= 1 ) @compileError("base_ must be >=2");
 
     return struct {
 	const Self = @This();
@@ -20,14 +19,36 @@ pub fn Data(comptime UintT: type, base_: UintT, digit_: UintT) type {
 	pub const digit: T = digit_;
 
 	/// Type.
-	pub const T = UintT;
+	pub const T = T_;
+
+	fn getOneBitWider(comptime T0: type) type {
+	    const bits = @typeInfo(T0).Int.bits + 1;
+	    return @Type(std.builtin.Type {
+		.Int = .{ .signedness = .unsigned, .bits = bits, },
+	    });
+	}
+
+	const end0: ?T = std.math.powi(T, base, digit) catch null;
+
+	/// Type of END.
+	/// E.g. Data(u4, 2, 4) => T == u4 && END_T == u5.
+	/// E.g. Data(u5, 2, 4) => T == u5 && END_T == u5
+	pub const END_T: type = if ( end0 != null ) T else getOneBitWider(T);
 
 	/// std.math.powi(T, base, digit), which MAX + 1 == END.
 	/// E.g. powi(u16, 3, 10) == 59049.
-	pub const END: T = INT_END_;
+	pub const END: END_T = if ( end0 ) |v| v
+		else std.math.powi(END_T, base, digit)
+		catch @compileError("END overflown; try with larger unsigned type");
 
 	/// Maximum value that can be represented in given base and given digits.
 	pub const MAX: T = END - 1;
+
+	// Compile-time test.
+	comptime {
+	    _ = END;
+	    _ = MAX;
+	}
 
 	/// In specified base and specified digits.
 	pub const is_representable = is_valid_value;
@@ -59,7 +80,15 @@ pub fn Data(comptime UintT: type, base_: UintT, digit_: UintT) type {
 
 	/// Add one to x. Overwrapped.
 	pub fn incr(x: T) T {
-	    return (x + 1) % END;
+	    return if ( T == END_T )
+		    (x + 1) % END
+		else
+		    x +% 1;
+	}
+
+	comptime {
+	    // @compileLog(T, base, digit, END_T, MAX, incr(MAX));
+	    if ( incr(MAX) != 0 ) @compileError("incr(MAX)!=0????");
 	}
 
 	/// Add y to x. Overwrapped.
@@ -139,4 +168,18 @@ test "Custom data type: base-7 6-digit" {
 	    5 * 49*7 + 3 * 49 + 1 * 7 + 6 * 1,
 	    6 * 49*7 + 0 * 49 + 1 * 7 + 2 * 1)
 	==  6 * 49*7 + 3 * 49 + 0 * 7 + 4 * 1);
+}
+
+test "Data(u16, 2, 16)" {
+    const M = Data(u16, 2, 16);
+    const expect = std.testing.expect;
+    try expect(M.T == u16);
+    try expect(M.MAX == 65535);
+    try expect(M.END == 65536);
+}
+
+test "Data(T, 4, 2); powi(4,2) == 16; at least u5" {
+    // _ = Data(u3, 4, 2); // Compile-error
+    _ = Data(u4, 4, 2); // Ok
+    _ = Data(u5, 4, 2); // Obviously Ok
 }
