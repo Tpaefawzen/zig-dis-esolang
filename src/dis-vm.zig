@@ -27,11 +27,8 @@ pub fn Vm(
 	/// Running status.
 	status: VmStatus = .running,
 
-	/// Method.
 	/// Run a machine with a step.
-	/// XXX: Not really polymorphism or whatever; not really free to change method.
-	/// XXX: How? How do I implement a struct type of custom methods?
-	pub fn step(self: *@This()) VmStatus {
+	pub fn step(self: *@This()) error{ReadError, WriteError}!VmStatus {
 	    if ( self.isHalt() ) return self.status;
 
 	    const cmdfn = self.fetchCommand();
@@ -77,16 +74,10 @@ pub fn Vm(
 
 	/// Same as fetchCommand but the user supplies value.
 	pub fn fetchCommandOf(x: T) ?(*const fn(*@This()) void) {
-	    return switch ( x ) {
-	    33	=> halt,	// !
-	    42	=> load,	// *
-	    62	=> rot,		// >
-	    94	=> jmp,		// ^
-	    95	=> null,	// _
-	    123	=> write,	// {
-	    124	=> opr,		// |
-	    125 => read,	// }
-	    else => null,
+	    return switch ( decodeCommand(x) ) {
+	    .halt => halt, .load => load, .rot => rot,
+	    .jmp => jmp, .nop => null, .write => write,
+	    .opr => opr, .read => read,
 	    };
 	}
 
@@ -140,6 +131,23 @@ pub fn Vm(
     };
 }
 
+/// Eight commands specified in Dis.
+pub const Command = enum { halt, load, rot, jmp, nop, write, opr, read, };
+
+pub inline fn decodeCommand(char_code: anytype) Command {
+    return switch ( char_code ) {
+    33 => .halt,
+    42 => .load,
+    62 => .rot,
+    94 => .jmp,
+    95 => .nop,
+    123 => .write,
+    124 => .opr,
+    125 => .read,
+    else => .nop,
+    };
+}
+
 pub const VmStatus = union(enum) {
     running,
 
@@ -184,10 +192,21 @@ test DefaultVm {
 
 test "Vm().step" {
     var vm1 = DefaultVm{};
-    _ = vm1.step();
-    _ = vm1.step();
-    _ = vm1.step();
+    _ = try vm1.step();
+    _ = try vm1.step();
+    _ = try vm1.step();
     try std.testing.expect(vm1.a == 0);
     try std.testing.expect(vm1.c == 3);
     try std.testing.expect(vm1.d == 3);
+
+    vm1.mem[3] = 33;
+    try std.testing.expect(try vm1.step() == .haltByHaltCommand);
+    try std.testing.expect(vm1.c == 3);
+    try std.testing.expect(vm1.d == 3);
+
+    vm1.status = .running;
+    vm1.mem[3] = 42;
+    _ = try vm1.step();
+    try std.testing.expect(vm1.c == 4);
+    try std.testing.expect(vm1.d == 43);
 }
