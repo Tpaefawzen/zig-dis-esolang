@@ -65,6 +65,7 @@ pub fn Math(comptime T_: type, comptime base_: T_, comptime digit_: T_) type {
 	}
 
         /// For each digit, do subtraction without carry.
+        /// Wraps around underflows.
 	pub fn opr(x: T, y: T) T {
 	    if ( x == 0 and y == 0 ) return 0;
 	    return base * opr(x / base, y / base) + opr_(x % base, y % base);
@@ -82,6 +83,7 @@ pub fn Math(comptime T_: type, comptime base_: T_, comptime digit_: T_) type {
 	    return if ( T == END_T )
 		    (x + 1) % END
 		else
+                    // uN where N == 2 << M
 		    x +% 1;
 	}
 
