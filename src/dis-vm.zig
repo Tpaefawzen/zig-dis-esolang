@@ -8,8 +8,8 @@ const math = @import("dis-math.zig");
 pub fn Vm(
 	comptime Math: type,
 	comptime writeByte: fn(u8) anyerror!void,
-	comptime readByte: fn() (error{EndOfStream}||anyerror)!u8)
-	type {
+	comptime readByte: fn() (error{EndOfStream}||anyerror)!u8) type {
+
     const T: type = Math.T;
     return struct {
 	/// Accumulator.
@@ -48,7 +48,8 @@ pub fn Vm(
 	/// Simple halting-checker.
 	pub fn isHalt(self: @This()) bool {
 	    return self.status == .haltByHaltCommand
-		or self.status == .haltByEofWrite;
+		or self.status == .haltByEofWrite
+		or self.status == .writeError;
 	}
 
 	pub fn hasError(self: @This()) bool {
