@@ -13,8 +13,6 @@ pub fn Math(comptime T_: type, comptime base_: T_, comptime digit_: T_) type {
     if ( digit_ == 0 ) @compileError("digit_ must be >=1");
 
     return struct {
-	const Self = @This();
-
 	/// Explained as is.
 	pub const base: T = base_;
 	pub const digit: T = digit_;
