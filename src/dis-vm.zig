@@ -190,9 +190,7 @@ test DefaultVm {
     try std.testing.expect(vm.mem[429] == 0);
 }
 
-
-
-test "Vm.step" {
+test "Vm.step noncmd and !*>^_|" {
     var vm1 = DefaultVm{};
     _ = try vm1.step();
     _ = try vm1.step();
@@ -233,4 +231,32 @@ test "Vm.step" {
     _ = try vm1.step();
     try std.testing.expect(vm1.c == 1);
     try std.testing.expect(vm1.d == 2);
+
+    vm1.mem[1] = 95;
+    vm1.mem[2] = 33 + 256;
+    _ = try vm1.step();
+    _ = try vm1.step();
+    try std.testing.expect(vm1.c == 3);
+    try std.testing.expect(vm1.d == 4);
+    try std.testing.expect(vm1.mem[1] == 95);
+    try std.testing.expect(vm1.mem[2] == 33 + 256);
+    try std.testing.expect(vm1.mem[3] == 42);
+
+    // Skipping write, read at this point
+
+    vm1.mem[3] = 124;
+    vm1.mem[4] = 48272;
+    try std.testing.expect(vm1.a == 19683*2+20);
+
+    _ = try vm1.step();
+
+    const xopr0 = dis_math.DefaultMath.opr(19683*2+20, 48272);
+    try std.testing.expect(vm1.a == xopr0);
+    try std.testing.expect(vm1.mem[4] == xopr0);
+    try std.testing.expect(vm1.c == 4);
+    try std.testing.expect(vm1.d == 5);
+}
+
+test "Vm().step {}" {
+    // TODO
 }
