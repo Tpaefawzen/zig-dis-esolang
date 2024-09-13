@@ -2,11 +2,11 @@
 
 const std = @import("std");
 
-const data = @import("dis-math.zig");
+const math = @import("dis-math.zig");
 
-/// Make a virtual machine that works on specified Data type.
-pub fn Vm(comptime Data: anytype) type {
-    const T: type = Data.T;
+/// Make a virtual machine that works on specified Math type.
+pub fn Vm(comptime Math: anytype) type {
+    const T: type = Math.T;
     return struct {
 	/// Accumulator.
 	a: T = 0,
@@ -14,11 +14,11 @@ pub fn Vm(comptime Data: anytype) type {
 	/// Program counter.
 	c: T = 0,
 
-	/// Data pointer.
+	/// Math pointer.
 	d: T = 0,
 
 	/// Program memory that shares both code and data.
-	mem: [Data.END]T = [_]T{0} ** Data.END,
+	mem: [Math.END]T = [_]T{0} ** Math.END,
 
 	/// Running status.
 	status: VmStatus = .running,
@@ -31,8 +31,8 @@ pub fn Vm(comptime Data: anytype) type {
 
 	/// Increment C and D; the Dis machine increments both registers C, D
 	/// after each step.
-	pub fn incrementCAndD(self: @This(), y: Data.T) void {
-	    const increment = Data.increment;
+	pub fn incrementCAndD(self: @This(), y: Math.T) void {
+	    const increment = Math.increment;
 	    self.c = increment(self.c, y);
 	    self.d = increment(self.d, y);
 	}
@@ -62,7 +62,7 @@ pub fn Vm(comptime Data: anytype) type {
 
 	fn rot(self: @This()) void {
 	    const x = self.mem[self.d];
-	    const z = Data.rot(x);
+	    const z = Math.rot(x);
 	    self.a = z;
 	    self.mem[self.d] = z;
 	}
@@ -73,7 +73,7 @@ pub fn Vm(comptime Data: anytype) type {
 
 	fn write(self: @This()) void {
 	    const a = self.a;
-	    if ( a == Data.MAX ) {
+	    if ( a == Math.MAX ) {
 		self.status = .haltByEofWrite;
 		return;
 	    }
@@ -84,7 +84,7 @@ pub fn Vm(comptime Data: anytype) type {
 	}
 
 	fn opr(self: @This()) void {
-	    const z = Data.opr(self.a, self.mem[self.d]);
+	    const z = Math.opr(self.a, self.mem[self.d]);
 	    self.a = z;
 	    self.mem[self.d] = z;
 	}
@@ -96,7 +96,7 @@ pub fn Vm(comptime Data: anytype) type {
 		if ( err != error.EndOfStream ) {
 		    self.status = .readError(err);
 		}
-		self.a = Data.MAX;
+		self.a = Math.MAX;
 	    };
 	}
     };
@@ -112,7 +112,7 @@ pub const VmStatus = union(enum) {
 };
 
 /// Officially defined Dis machine.
-pub const DefaultVm = Vm(data.DefaultData);
+pub const DefaultVm = Vm(math.DefaultMath);
 
 test DefaultVm {
     try std.testing.expect(@hasField(DefaultVm, "a"));

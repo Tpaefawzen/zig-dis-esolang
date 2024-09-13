@@ -5,7 +5,7 @@ const std = @import("std");
 
 /// A namespace of arithmetic operators for Dis data type.
 /// Specified base and specified digits of unsigned integers.
-pub fn Data(comptime T_: type, comptime base_: T_, comptime digit_: T_) type {
+pub fn Math(comptime T_: type, comptime base_: T_, comptime digit_: T_) type {
     // Domain things
     if ( @typeInfo(T_) != .Int ) @compileError("T_ must be unsigned integer");
     if ( std.math.minInt(T_) < 0 ) @compileError("T_ must be unsigned integer");
@@ -32,15 +32,15 @@ pub fn Data(comptime T_: type, comptime base_: T_, comptime digit_: T_) type {
 	const end0: ?T = std.math.powi(T, base, digit) catch null;
 
 	/// Type of END.
-	/// E.g. Data(u4, 2, 4) => T == u4 && END_T == u5.
-	/// E.g. Data(u5, 2, 4) => T == u5 && END_T == u5
+	/// E.g. Math(u4, 2, 4) => T == u4 && END_T == u5.
+	/// E.g. Math(u5, 2, 4) => T == u5 && END_T == u5
 	pub const END_T: type = if ( end0 != null ) T else getOneBitWider(T);
 
 	/// std.math.powi(T, base, digit), which MAX + 1 == END.
 	/// E.g. powi(u16, 3, 10) == 59049.
 	pub const END: END_T = if ( end0 ) |v| v
 		else std.math.powi(END_T, base, digit)
-		catch @compileError("END overflown; try with larger unsigned type");
+		catch @compileError("END overflown; try with larger unsigned type T_");
 
 	/// Maximum value that can be represented in given base and given digits.
 	pub const MAX: T = END - 1;
@@ -118,17 +118,17 @@ pub fn Data(comptime T_: type, comptime base_: T_, comptime digit_: T_) type {
 }
 
 /// Official Dis specification constants.
-pub const DefaultData = Data(u16, 3, 10);
+pub const DefaultMath = Math(u16, 3, 10);
 
-test DefaultData {
-    try std.testing.expect(DefaultData.base == 3);
-    try std.testing.expect(DefaultData.digit == 10);
-    try std.testing.expect(DefaultData.MAX == 59048);
-    try std.testing.expect(DefaultData.END == 59049);
+test DefaultMath {
+    try std.testing.expect(DefaultMath.base == 3);
+    try std.testing.expect(DefaultMath.digit == 10);
+    try std.testing.expect(DefaultMath.MAX == 59048);
+    try std.testing.expect(DefaultMath.END == 59049);
 }
 
-test "DefaultData.rot" {
-    const rot = DefaultData.rot;
+test "DefaultMath.rot" {
+    const rot = DefaultMath.rot;
 
     try std.testing.expect(rot(1) == 19683);
     try std.testing.expect(rot(19683) == 19683/3);
@@ -136,8 +136,8 @@ test "DefaultData.rot" {
     try std.testing.expect(rot(4) == 19683 + 1);
 }
 
-test "DefaultData.opr" {
-    const opr = DefaultData.opr;
+test "DefaultMath.opr" {
+    const opr = DefaultMath.opr;
 
     try std.testing.expect(opr(0, 0) == 0);
     try std.testing.expect(opr(0, 1) == 2);
@@ -163,19 +163,19 @@ test "DefaultData.opr" {
     }
 }
 
-test "DefaultData.incr" {
-    try std.testing.expect(DefaultData.incr(0) == 1);
-    try std.testing.expect(DefaultData.incr(59047) == 59048);
-    try std.testing.expect(DefaultData.incr(59048) == 0);
+test "DefaultMath.incr" {
+    try std.testing.expect(DefaultMath.incr(0) == 1);
+    try std.testing.expect(DefaultMath.incr(59047) == 59048);
+    try std.testing.expect(DefaultMath.incr(59048) == 0);
 }
 
-test "DefaultData.increment" {
-    try std.testing.expect(DefaultData.increment(59048, 59048) == 59047);
-    try std.testing.expect(DefaultData.increment(2323, 65535) == (2323 + 65535 % 59049));
+test "DefaultMath.increment" {
+    try std.testing.expect(DefaultMath.increment(59048, 59048) == 59047);
+    try std.testing.expect(DefaultMath.increment(2323, 65535) == (2323 + 65535 % 59049));
 }
 
-test "Custom data type: base-7 6-digit" {
-    const Math7_6 = Data(u17, 7, 6);
+test "Custom math type: base-7 6-digit" {
+    const Math7_6 = Math(u17, 7, 6);
     const expect = std.testing.expect;
 
     try expect(Math7_6.END == 117_649);
@@ -187,16 +187,16 @@ test "Custom data type: base-7 6-digit" {
 	==  6 * 49*7 + 3 * 49 + 0 * 7 + 4 * 1);
 }
 
-test "Data(u16, 2, 16)" {
-    const M = Data(u16, 2, 16);
+test "Math(u16, 2, 16)" {
+    const M = Math(u16, 2, 16);
     const expect = std.testing.expect;
     try expect(M.T == u16);
     try expect(M.MAX == 65535);
     try expect(M.END == 65536);
 }
 
-test "Data(T, 4, 2); powi(4,2) == 16; at least u5" {
-    // _ = Data(u3, 4, 2); // Compile-error
-    _ = Data(u4, 4, 2); // Ok
-    _ = Data(u5, 4, 2); // Obviously Ok
+test "Math(T, 4, 2); powi(4,2) == 16; at least u5" {
+    // _ = Math(u3, 4, 2); // Compile-error
+    _ = Math(u4, 4, 2); // Ok
+    _ = Math(u5, 4, 2); // Obviously Ok
 }
