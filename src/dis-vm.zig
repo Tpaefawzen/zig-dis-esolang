@@ -2,7 +2,7 @@
 
 const std = @import("std");
 
-const math = @import("dis-math.zig");
+const dis_math = @import("dis-math.zig");
 
 /// Make a virtual machine that works on specified Math type.
 pub fn Vm(
@@ -143,27 +143,28 @@ pub fn Vm(
 pub const VmStatus = union(enum) {
     running,
 
-    // Reached to the "{" command and the accumulator had Math().MAX.
+    /// Reached to the "{" command and the accumulator had Math().MAX.
     haltByEofWrite,
 
-    // The "!" command.
+    /// The "!" command.
     haltByHaltCommand,
 
-    // This status is used when the optimizer realized that there
-    // will be no I/O and the program shall never stop.
+    /// This status is used when the optimizer realized that there
+    /// will be no I/O and the program shall never stop.
     noIoInfiniteLoop,
 
-    // Write-error is considered to be halt.
+    /// Write-error is considered to result in halt;
+    /// one example of such errors is BrokenPipe.
     writeError: anyerror,
 
-    // only error.EndOfStream is considered to be non-error read-error;
-    // whatever readError happens,
-    // it is treated as if Math().MAX were read.
+    /// only error.EndOfStream is considered to be non-error read-error;
+    /// whichever kind of readError happens,
+    /// it is treated as if Math().MAX were read.
     readError: anyerror,
 };
 
 /// Officially defined Dis machine.
-pub const DefaultVm = Vm(math.DefaultMath, myWriteByte, myReadByte);
+pub const DefaultVm = Vm(dis_math.DefaultMath, myWriteByte, myReadByte);
 
 fn myWriteByte(x: u8) anyerror!void {
     return std.io.getStdOut().writer().writeByte(x);
