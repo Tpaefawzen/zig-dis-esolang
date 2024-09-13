@@ -5,7 +5,11 @@ const std = @import("std");
 const math = @import("dis-math.zig");
 
 /// Make a virtual machine that works on specified Math type.
-pub fn Vm(comptime Math: anytype) type {
+pub fn Vm(
+	comptime Math: type,
+	comptime writeByte: fn(u8) anyerror!void,
+	comptime readByte: fn() (error{EndOfStream}||anyerror)!u8)
+	type {
     const T: type = Math.T;
     return struct {
 	/// Accumulator.
@@ -23,23 +27,56 @@ pub fn Vm(comptime Math: anytype) type {
 	/// Running status.
 	status: VmStatus = .running,
 
-	// /// Reader for standard input. Byte-oriented.
-	// reader: std.io.GenericReader,
+	/// Method.
+	/// Run a machine with a step.
+	/// XXX: Not really polymorphism or whatever; not really free to change method.
+	/// XXX: How? How do I implement a struct type of custom methods?
+	pub fn step(self: *@This()) VmStatus {
+	    if ( self.isHalt() ) return self.status;
 
-	// /// Writer for standard output. Byte-oriented.
-	// writer: std.io.GenericWriter,
+	    const cmdfn = self.fetchCommand();
+	    if ( cmdfn ) |f| f(self);
+
+	    if ( self.isHalt() ) return self.status;
+	    if ( self.hasError() ) return self.status;
+
+	    self.incrCAndD();
+
+	    return self.status;
+	}
+
+	/// Simple halting-checker.
+	pub fn isHalt(self: @This()) bool {
+	    return self.status == .haltByHaltCommand
+		or self.status == .haltByEofWrite;
+	}
+
+	pub fn hasError(self: @This()) bool {
+	    return self.status == .readError
+		or self.status == .writeError;
+	}
 
 	/// Increment C and D; the Dis machine increments both registers C, D
 	/// after each step.
-	pub fn incrementCAndD(self: @This(), y: Math.T) void {
+	pub fn incrementCAndD(self: *@This(), y: Math.T) void {
 	    const increment = Math.increment;
 	    self.c = increment(self.c, y);
 	    self.d = increment(self.d, y);
 	}
 
+	/// Same as incrementCAndD except increment by one.
+	pub fn incrCAndD(self: *@This()) void {
+	    incrementCAndD(self, 1);
+	}
+
 	/// Fetch a command.
-	fn fetchCommand(self: @This()) ?(*fn(@This()) void) {
-	    return switch ( self.mem[self.c] ) {
+	fn fetchCommand(self: @This()) ?(*const fn(*@This()) void) {
+	    return fetchCommandOf(self.mem[self.c]);
+	}
+
+	/// Same as fetchCommand but the user supplies value.
+	pub fn fetchCommandOf(x: T) ?(*const fn(*@This()) void) {
+	    return switch ( x ) {
 	    33	=> halt,	// !
 	    42	=> load,	// *
 	    62	=> rot,		// >
@@ -52,38 +89,38 @@ pub fn Vm(comptime Math: anytype) type {
 	    };
 	}
 
-	fn halt(self: @This()) void {
+	fn halt(self: *@This()) void {
 	    self.status = .haltByHaltCommand;
 	}
 
-	fn load(self: @This()) void {
+	fn load(self: *@This()) void {
 	    self.d = self.mem[self.d];
 	}
 
-	fn rot(self: @This()) void {
+	fn rot(self: *@This()) void {
 	    const x = self.mem[self.d];
 	    const z = Math.rot(x);
 	    self.a = z;
 	    self.mem[self.d] = z;
 	}
 
-	fn jmp(self: @This()) void {
+	fn jmp(self: *@This()) void {
 	    self.c = self.mem[self.d];
 	}
 
-	fn write(self: @This()) void {
+	fn write(self: *@This()) void {
 	    const a = self.a;
 	    if ( a == Math.MAX ) {
 		self.status = .haltByEofWrite;
 		return;
 	    }
 
-	    self.writer.writeByte(@as(u8, a)) catch |err| {
-		self.status = .writeError(err);
+	    writeByte(@truncate(a)) catch |err| {
+		self.status.writeError = err;
 	    };
 	}
 
-	fn opr(self: @This()) void {
+	fn opr(self: *@This()) void {
 	    const z = Math.opr(self.a, self.mem[self.d]);
 	    self.a = z;
 	    self.mem[self.d] = z;
@@ -91,12 +128,12 @@ pub fn Vm(comptime Math: anytype) type {
 
 	/// Assumes ReadError-s other than EndOfStream are
 	/// equivalent to EndOfStream.
-	fn read(self: @This()) void {
-	    self.a = self.reader.readByte() catch |err| {
+	fn read(self: *@This()) void {
+	    self.a = readByte() catch |err| l: {
 		if ( err != error.EndOfStream ) {
-		    self.status = .readError(err);
+		    self.status.readError = err;
 		}
-		self.a = Math.MAX;
+		break :l Math.MAX;
 	    };
 	}
     };
@@ -104,15 +141,36 @@ pub fn Vm(comptime Math: anytype) type {
 
 pub const VmStatus = union(enum) {
     running,
+
+    // Reached to the "{" command and the accumulator had Math().MAX.
     haltByEofWrite,
+
+    // The "!" command.
     haltByHaltCommand,
+
+    // This status is used when the optimizer realized that there
+    // will be no I/O and the program shall never stop.
     noIoInfiniteLoop,
-    writeError: error{},
-    readError: error{},
+
+    // Write-error is considered to be halt.
+    writeError: anyerror,
+
+    // only error.EndOfStream is considered to be non-error read-error;
+    // whatever readError happens,
+    // it is treated as if Math().MAX were read.
+    readError: anyerror,
 };
 
 /// Officially defined Dis machine.
-pub const DefaultVm = Vm(math.DefaultMath);
+pub const DefaultVm = Vm(math.DefaultMath, myWriteByte, myReadByte);
+
+fn myWriteByte(x: u8) anyerror!void {
+    return std.io.getStdOut().writer().writeByte(x);
+}
+
+fn myReadByte() anyerror!u8 {
+    return std.io.getStdIn().reader().readByte();
+}
 
 test DefaultVm {
     try std.testing.expect(@hasField(DefaultVm, "a"));
@@ -120,4 +178,14 @@ test DefaultVm {
 
     const vm = DefaultVm{};
     try std.testing.expect(vm.mem[429] == 0);
+}
+
+test "Vm().step" {
+    var vm1 = DefaultVm{};
+    _ = vm1.step();
+    _ = vm1.step();
+    _ = vm1.step();
+    try std.testing.expect(vm1.a == 0);
+    try std.testing.expect(vm1.c == 3);
+    try std.testing.expect(vm1.d == 3);
 }
