@@ -7,8 +7,9 @@ const dis_math = @import("dis-math.zig");
 /// Make a virtual machine that works on specified Math type.
 pub fn Vm(
 	comptime Math: type,
-	comptime writeByte: fn(u8) anyerror!void,
-	comptime readByte: fn() (error{EndOfStream}||anyerror)!u8) type {
+	comptime writer: anytype,
+	comptime reader: anytype
+) type {
 
     const T: type = Math.T;
     return struct {
@@ -28,8 +29,9 @@ pub fn Vm(
 	status: VmStatus = .running,
 
 	/// Run a machine with a step.
-	pub fn step(self: *@This()) error{ReadError, WriteError}!VmStatus {
-	    if ( self.isHalt() ) return self.status;
+	/// Must be running one.
+	pub fn step(self: *@This()) error{NotRunning, ReadError, WriteError}!VmStatus {
+	    if ( self.status != .running ) return error.NotRunning;
 
 	    const cmdfn = self.fetchCommand();
 	    if ( cmdfn ) |f| f(self);
@@ -107,7 +109,7 @@ pub fn Vm(
 		return;
 	    }
 
-	    writeByte(@truncate(a)) catch |err| {
+	    writer.writeByte(@truncate(a)) catch |err| {
 		self.status.writeError = err;
 	    };
 	}
@@ -121,7 +123,7 @@ pub fn Vm(
 	/// Assumes ReadError-s other than EndOfStream are
 	/// equivalent to EndOfStream.
 	fn read(self: *@This()) void {
-	    self.a = readByte() catch |err| l: {
+	    self.a = reader.readByte() catch |err| l: {
 		if ( err != error.EndOfStream ) {
 		    self.status.readError = err;
 		}
@@ -172,15 +174,7 @@ pub const VmStatus = union(enum) {
 };
 
 /// Officially defined Dis machine.
-pub const DefaultVm = Vm(dis_math.DefaultMath, myWriteByte, myReadByte);
-
-fn myWriteByte(x: u8) anyerror!void {
-    return std.io.getStdOut().writer().writeByte(x);
-}
-
-fn myReadByte() anyerror!u8 {
-    return std.io.getStdIn().reader().readByte();
-}
+pub const DefaultVm = Vm(dis_math.DefaultMath, std.io.getStdOut().writer(), std.io.getStdIn().reader());
 
 test DefaultVm {
     try std.testing.expect(@hasField(DefaultVm, "a"));
