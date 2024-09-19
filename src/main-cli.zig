@@ -15,8 +15,8 @@ pub fn main() !void {
     arg0 = args.next() orelse "dis-esolang";
 
     const filename = args.next() orelse usage(false);
-
-    _ = filename;
+    const file = try std.fs.cwd().openFile(filename, .{ .mode = .read_only });
+    defer file.close();
 
     std.process.exit(0);
 }
