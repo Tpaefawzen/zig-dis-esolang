@@ -1,13 +1,18 @@
+//! Commandline interface program implementation.
+
 const std = @import("std");
 
+/// Program name.
 var arg0: [:0]const u8 = undefined;
 
+/// Print usage and exit.
 fn usage(succeed: bool) noreturn {
     // std.debug.print("Usage: {s} [-Ev] [-k steps] [-O level] FILE\n", .{arg0});
     std.debug.print("Usage: {s} FILE\n", .{arg0});
     std.process.exit(if ( succeed ) 0 else 1);
 }
 
+/// Program entry.
 pub fn main() !void {
     var args = std.process.args(); 
     defer args.deinit();
