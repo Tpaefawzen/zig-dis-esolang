@@ -15,7 +15,10 @@ pub fn main() !void {
     arg0 = args.next() orelse "dis-esolang";
 
     const filename = args.next() orelse usage(false);
-    const file = try std.fs.cwd().openFile(filename, .{ .mode = .read_only });
+    const file = std.fs.cwd().openFile(filename, .{ .mode = .read_only }) catch |err| {
+	    std.debug.print("{s}: Could not open {s}: {s}\n", .{ arg0, filename, @errorName(err) });
+	    std.process.exit(1);
+	};
     defer file.close();
 
     std.process.exit(0);
