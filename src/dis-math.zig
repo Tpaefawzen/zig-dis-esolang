@@ -5,7 +5,14 @@ const std = @import("std");
 
 /// A namespace of arithmetic operators for Dis data type.
 /// Specified base and specified digits of unsigned integers.
-pub fn Math(comptime T_: type, comptime base_: T_, comptime digit_: T_) type {
+pub fn Math(
+	/// Unsigned integer.
+	comptime T_: type,
+	/// >= 2
+	comptime base_: T_,
+	/// >= 1
+	comptime digit_: T_
+) type {
     // Domain things
     if ( @typeInfo(T_) != .Int ) @compileError("T_ must be unsigned integer");
     if ( std.math.minInt(T_) < 0 ) @compileError("T_ must be unsigned integer");
@@ -13,12 +20,9 @@ pub fn Math(comptime T_: type, comptime base_: T_, comptime digit_: T_) type {
     if ( digit_ == 0 ) @compileError("digit_ must be >=1");
 
     return struct {
-	/// Explained as is.
 	pub const base: T = base_;
 	pub const digit: T = digit_;
-
-	/// Type.
-	pub const T = T_;
+	pub const T: type = T_;
 
 	fn getOneBitWider(comptime T0: type) type {
 	    const bits = @typeInfo(T0).Int.bits + 1;

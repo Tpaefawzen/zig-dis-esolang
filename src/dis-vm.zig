@@ -6,9 +6,12 @@ const dis_math = @import("dis-math.zig");
 
 /// Make a virtual machine that works on specified Math type.
 pub fn Vm(
+	/// dis-math.zig Math()
 	comptime Math: type,
-	comptime writer: anytype,
-	comptime reader: anytype
+	/// As in std.io.GenericReader. Has method `readByte`.
+	comptime reader: anytype,
+	/// As in std.io.GenericWriter. Has method `writeByte`.
+	comptime writer: anytype
 ) type {
 
     const T: type = Math.T;
@@ -174,7 +177,7 @@ pub const VmStatus = union(enum) {
 };
 
 /// Officially defined Dis machine.
-pub const DefaultVm = Vm(dis_math.DefaultMath, std.io.getStdOut().writer(), std.io.getStdIn().reader());
+pub const DefaultVm = Vm(dis_math.DefaultMath, std.io.getStdIn().reader(), std.io.getStdOut().writer());
 
 test DefaultVm {
     try std.testing.expect(@hasField(DefaultVm, "a"));
