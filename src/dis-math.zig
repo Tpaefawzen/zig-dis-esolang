@@ -84,30 +84,36 @@ pub fn Math(
 
 	/// Add one to x. Overwrapped.
 	pub fn incr(x: T) T {
-	    return if ( T == END_T )
-		    (x + 1) % END
-		else
-                    // uN where N == 2 << M
-		    x +% 1;
+	    if ( T != END_T ) return x+%1; // base is 2,4,8,16,32,...
+	    return (x+1)%END;
 	}
 
 	comptime {
+	    if ( incr(0) != 1 ) unreachable;
 	    // @compileLog(T, base, digit, END_T, MAX, incr(MAX));
 	    if ( incr(MAX) != 0 ) @compileError("incr(MAX)!=0????");
 	}
 
 	/// Add y to x. Overwrapped.
 	pub fn increment(x: T, y: T) T {
-	    const x0 = x % END;
-	    const y0 = y % END;
-
-	    const z0 = @addWithOverflow(x0, y0);
-	    if ( z0[1] == 0 ) return @truncate(z0[0] % END);
-
-	    return @truncate((x0 - (END - y0)) % END);
+	    if ( T != END_T ) return x+%y;
+	    const x0 = x%END;
+	    const y0 = y%END;
+	    const z = @addWithOverflow(x0, y0);
+	    if ( z[1] == 0 ) return @truncate(z[0]%END);
+	    return @truncate((x-(END-y))%END);
 	}
 
 	comptime {
+	    if ( increment(0, 0) != 0 ) unreachable;
+	    if ( increment(1, 0) != 1 ) unreachable;
+	    if ( increment(0, 1) != 1 ) unreachable;
+	    if ( increment(0, MAX) != MAX ) unreachable;
+	    if ( increment(MAX, 0) != MAX ) unreachable;
+	    if ( increment(MAX, MAX) != MAX-1 ) unreachable;
+	    if ( increment(1, MAX) != 0 ) unreachable;
+	    if ( increment(MAX, 1) != 0 ) unreachable;
+
 	    const x = std.math.maxInt(T);
 	    const z = increment(x, x);
 	    _ = z;
@@ -117,6 +123,33 @@ pub fn Math(
 	    // @compileLog(T, base, digit, END_T, MAX, increment(x, MAX));
 	    // @compileLog(T, base, digit, END_T, MAX, increment(MAX, x));
 	    // @compileLog(T, base, digit, END_T, MAX, increment(MAX, MAX));
+	}
+
+	/// Subtract 1 from x. Overwrapped.
+	pub fn decr(x: T) T {
+	    if ( T != END_T ) return x-%1;
+	    return if ( x == 0 ) MAX else (x-1)%END;
+	}
+
+	comptime {
+	    if ( decr(0) != MAX ) unreachable;
+	    if ( decr(MAX) != MAX-1 ) unreachable;
+	}
+
+	/// Subtract y from x. Overwrapped.
+	pub fn decrement(x: T, y: T) T {
+	    if ( T != END_T ) return x-%y;
+	    if ( x >= y ) return (x-y)%END;
+	    return (x+(END-y%END))%END;
+	}
+
+	comptime {
+	    if ( decrement(0, 0) != 0 ) unreachable;
+	    if ( decrement(1, 0) != 1 ) unreachable;
+	    if ( decrement(0, 1) != MAX ) unreachable;
+	    if ( decrement(MAX, 0) != MAX ) unreachable;
+	    if ( decrement(0, MAX) != 1 ) unreachable;
+	    if ( decrement(MAX, MAX) != 0 ) unreachable;
 	}
     };
 }
