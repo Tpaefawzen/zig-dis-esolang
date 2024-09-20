@@ -7,136 +7,147 @@ const dis_math = @import("dis-math.zig");
 /// Make a virtual machine that works on specified Math type.
 pub fn Vm(
 	/// dis-math.zig Math()
-	comptime Math_: type,
-	/// As in std.io.GenericReader. Has method `readByte`.
-	comptime reader: anytype,
-	/// As in std.io.GenericWriter. Has method `writeByte`.
-	comptime writer: anytype
+	comptime Math_: type
 ) type {
-
-    const T: type = Math_.T;
     return struct {
 	pub const Math = Math_;
+	const T = Math.T;
 
 	/// Accumulator.
 	a: T = 0,
-
 	/// Program counter.
 	c: T = 0,
-
-	/// Math pointer.
+	/// Data pointer.
 	d: T = 0,
-
-	/// Program memory that shares both code and data.
+	/// Program memory, data and code are shared.
 	mem: [Math.END]T = [_]T{0} ** Math.END,
-
 	/// Running status.
 	status: VmStatus = .running,
 
-	/// Run a machine with a step.
-	/// Must be running one.
-	pub fn step(self: *@This()) error{NotRunning, ReadError, WriteError}!VmStatus {
-	    if ( self.status != .running ) return error.NotRunning;
-
-	    const cmdfn = self.fetchCommand();
-	    if ( cmdfn ) |f| f(self);
-
-	    if ( self.isHalt() ) return self.status;
-	    if ( self.hasError() ) return self.status;
-
-	    self.incrCAndD();
-
-	    return self.status;
+	/// Method-chain-style constructor for `Runner`.
+	pub fn runner(self: @This(), comptime Runner: type) Runner {
+	    return .{ .vm = self };
 	}
 
-	/// Simple halting-checker.
-	pub fn isHalt(self: @This()) bool {
-	    return self.status == .haltByHaltCommand
-		or self.status == .haltByEofWrite
-		or self.status == .writeError;
-	}
-
-	pub fn hasError(self: @This()) bool {
-	    return self.status == .readError
-		or self.status == .writeError;
-	}
-
-	/// Increment C and D; the Dis machine increments both registers C, D
-	/// after each step.
-	pub fn incrementCAndD(self: *@This(), y: Math.T) void {
-	    const increment = Math.increment;
-	    self.c = increment(self.c, y);
-	    self.d = increment(self.d, y);
-	}
-
-	/// Same as incrementCAndD except increment by one.
+	/// Increment C and D by one; in Dis this is how it is stepped.
 	pub fn incrCAndD(self: *@This()) void {
-	    incrementCAndD(self, 1);
+	    self.c = Math.incr(self.c);
+	    self.d = Math.incr(self.d);
 	}
 
-	/// Fetch a command.
-	fn fetchCommand(self: @This()) ?(*const fn(*@This()) void) {
-	    return fetchCommandOf(self.mem[self.c]);
+	/// Alias of `incrCAndD`.
+	pub const incrC = incrementCAndD;
+
+	/// Like `incrCAndD`; custom incrementation-value.
+	pub fn incrementCAndD(self: *@This(), x: T) void {
+	    self.c = Math.increment(self.c, x);
+	    self.d = Math.increment(self.d, x);
 	}
 
-	/// Same as fetchCommand but the user supplies value.
-	pub fn fetchCommandOf(x: T) ?(*const fn(*@This()) void) {
-	    return switch ( decodeCommand(x) ) {
-	    .halt => halt, .load => load, .rot => rot,
-	    .jmp => jmp, .nop => null, .write => write,
-	    .opr => opr, .read => read,
-	    };
+	/// Alias of `incrementCAndD`.
+	pub const incrementC = incrementCAndD;
+
+	/// `incrementCAndD` until `self.c` gets to `z`.
+	pub fn setC(self: *@This(), z: T) void {
+	    if ( z == self.c ) return;
+	    if ( z < self.c ) {
+		const x00 = self.c - z;
+		const x = Math.END - x00;
+		self.c = z;
+		self.d = Math.increment(self.d, x);
+	    }
+	    unreachable;
+	}
+
+	/// Maybe called by Runner{}.step(); reference implementation of
+	/// executing a command based on current mem[c].
+	pub fn runCommand(
+		self: *@This(),
+		/// `null` or pointer to something that has method `readByte`.
+		/// If `null` is given then it's like a null-device;
+		/// treats as if error.EndOfStream were reached.
+		reader: anytype,
+		/// `null` or pointer to something that has method `writeByte`.
+		/// If `null` is given then `output` command results in doing
+		/// nothing with no error.
+		writer: anytype
+	) void {
+	    switch ( decodeCommand(self.mem[self.c]) ) {
+		.halt => halt(self),
+		.load => load(self),
+		.rot => rot(self),
+		.jmp => jmp(self),
+		.nop => {},
+		.write => write(self, writer),
+		.opr => opr(self),
+		.read => read(self, reader),
+	    }
 	}
 
 	fn halt(self: *@This()) void {
-	    self.status = .haltByHaltCommand;
+	    self.status = .{ .halt = .haltCommand };
 	}
-
-	fn load(self: *@This()) void {
-	    self.d = self.mem[self.d];
-	}
-
+	fn load(self: *@This()) void { self.d = self.mem[self.d]; }
 	fn rot(self: *@This()) void {
-	    const x = self.mem[self.d];
-	    const z = Math.rot(x);
-	    self.a = z;
-	    self.mem[self.d] = z;
+	    self.a = Math.rot(self.mem[self.d]);
+	    self.mem[self.d] = self.a;
 	}
-
-	fn jmp(self: *@This()) void {
-	    self.c = self.mem[self.d];
-	}
-
-	fn write(self: *@This()) void {
-	    const a = self.a;
-	    if ( a == Math.MAX ) {
-		self.status = .haltByEofWrite;
+	fn jmp(self: *@This()) void { self.c = self.mem[self.d]; }
+	fn write(self: *@This(), writer: anytype) void {
+	    if ( self.a == Math.MAX ) {
+		self.status = .{ .halt = .eofWrite };
 		return;
 	    }
-
-	    writer.writeByte(@truncate(a)) catch |err| {
-		self.status.writeError = err;
+	    if ( writer == null ) { return; }
+	    writer.*.writeByte(@truncate(self.a)) catch |err| {
+		self.status = .{ .halt = .{ .writeError = err }};
 	    };
 	}
-
 	fn opr(self: *@This()) void {
-	    const z = Math.opr(self.a, self.mem[self.d]);
-	    self.a = z;
-	    self.mem[self.d] = z;
+	    self.a = Math.opr(self.a, self.mem[self.d]);
+	    self.mem[self.d] = self.a;
 	}
-
-	/// Assumes ReadError-s other than EndOfStream are
-	/// equivalent to EndOfStream.
-	fn read(self: *@This()) void {
-	    self.a = reader.readByte() catch |err| l: {
-		if ( err != error.EndOfStream ) {
-		    self.status.readError = err;
-		}
-		break :l Math.MAX;
-	    };
+	fn read(self: *@This(), reader: anytype) void {
+	    self.a = if ( reader == null ) Math.MAX
+	    	else reader.*.readByte() catch |err| l: {
+		    if ( err != error.EndOfStream ) {
+			self.status = .{ .readError = err };
+		    }
+		    break :l Math.MAX;
+		};
 	}
     };
 }
+
+pub const VmStatusTag = enum {
+    running, halt, readError,
+};
+
+pub const VmStatus = union(VmStatusTag) {
+    running, halt: HaltReason, readError: anyerror,
+
+    pub const HaltReason = union(enum) {
+	/// mem[C] is halt command.
+	haltCommand,
+	/// A is Math().MAX and mem[C] is write command.
+	eofWrite,
+	/// E.g. SIGPIPE, or something
+	writeError: anyerror,
+    };
+};
+
+/// Naive runner.
+pub const SimpleRunner = struct {
+    vm: *anyopaque,
+
+    pub fn init(self: *@This()) void { _ = self; }
+
+    pub const RunError = error { NotRunning, ReadErrorFixMe } || anyerror;
+    pub fn step(self: *@This()) RunError!VmStatus {
+	if ( self.vm.status != .running ) return error.NotRunning;
+	self.vm.runCommand();
+    }
+};
 
 /// Eight commands specified in Dis.
 pub const Command = enum { halt, load, rot, jmp, nop, write, opr, read, };
@@ -155,107 +166,119 @@ pub inline fn decodeCommand(char_code: anytype) Command {
     };
 }
 
-pub const VmStatus = union(enum) {
-    running,
-
-    /// Reached to the "{" command and the accumulator had Math().MAX.
-    haltByEofWrite,
-
-    /// The "!" command.
-    haltByHaltCommand,
-
-    /// This status is used when the optimizer realized that there
-    /// will be no I/O and the program shall never stop.
-    noIoInfiniteLoop,
-
-    /// Write-error is considered to result in halt;
-    /// one example of such errors is BrokenPipe.
-    writeError: anyerror,
-
-    /// only error.EndOfStream is considered to be non-error read-error;
-    /// whichever kind of readError happens,
-    /// it is treated as if Math().MAX were read.
-    readError: anyerror,
-};
-
 /// Officially defined Dis machine.
-pub const DefaultVm = Vm(dis_math.DefaultMath, std.io.getStdIn().reader(), std.io.getStdOut().writer());
+pub const DefaultVm = Vm(dis_math.DefaultMath);
 
 test DefaultVm {
     try std.testing.expect(@hasField(DefaultVm, "a"));
     try std.testing.expect(@hasField(DefaultVm, "mem"));
 
-    const vm = DefaultVm{};
-    try std.testing.expect(vm.mem[429] == 0);
-}
-
-test "Vm.step noncmd and !*>^_|" {
     var vm1 = DefaultVm{};
-    _ = try vm1.step();
-    _ = try vm1.step();
-    _ = try vm1.step();
-    try std.testing.expect(vm1.a == 0);
-    try std.testing.expect(vm1.c == 3);
-    try std.testing.expect(vm1.d == 3);
+    try std.testing.expect(vm1.mem[429] == 0);
 
-    vm1.mem[3] = 33;
-    try std.testing.expect(try vm1.step() == .haltByHaltCommand);
-    try std.testing.expect(vm1.c == 3);
-    try std.testing.expect(vm1.d == 3);
+    vm1.runCommand(null, null);
 
-    vm1.status = .running;
-    vm1.mem[3] = 42;
-    _ = try vm1.step();
-    try std.testing.expect(vm1.c == 4);
-    try std.testing.expect(vm1.d == 43);
+    vm1.c = 59048;
+    vm1.incrCAndD();
+    try std.testing.expect(vm1.c == 0 and vm1.d == 1);
 
-    _ = try vm1.step();
-    try std.testing.expect(vm1.c == 5);
-    try std.testing.expect(vm1.d == 44);
-
-    vm1.d = 59048;
-    _ = try vm1.step();
-    try std.testing.expect(vm1.c == 6);
-    try std.testing.expect(vm1.d == 0);
-
-    vm1.mem[6] = 62;
-    vm1.mem[0] = 62;
-    _ = try vm1.step();
-    try std.testing.expect(vm1.a == 19683*2+20);
-    try std.testing.expect(vm1.mem[0] == 19683*2+20);
-    try std.testing.expect(vm1.c == 7);
-    try std.testing.expect(vm1.d == 1);
-
-    vm1.mem[7] = 94;
-    _ = try vm1.step();
-    try std.testing.expect(vm1.c == 1);
-    try std.testing.expect(vm1.d == 2);
-
-    vm1.mem[1] = 95;
-    vm1.mem[2] = 33 + 256;
-    _ = try vm1.step();
-    _ = try vm1.step();
-    try std.testing.expect(vm1.c == 3);
-    try std.testing.expect(vm1.d == 4);
-    try std.testing.expect(vm1.mem[1] == 95);
-    try std.testing.expect(vm1.mem[2] == 33 + 256);
-    try std.testing.expect(vm1.mem[3] == 42);
-
-    // Skipping write, read at this point
-
-    vm1.mem[3] = 124;
-    vm1.mem[4] = 48272;
-    try std.testing.expect(vm1.a == 19683*2+20);
-
-    _ = try vm1.step();
-
-    const xopr0 = dis_math.DefaultMath.opr(19683*2+20, 48272);
-    try std.testing.expect(vm1.a == xopr0);
-    try std.testing.expect(vm1.mem[4] == xopr0);
-    try std.testing.expect(vm1.c == 4);
-    try std.testing.expect(vm1.d == 5);
+    vm1.d = 59040;
+    vm1.incrementC(10);
+    try std.testing.expect(vm1.c == 10 and vm1.d == 1);
 }
 
-test "Vm().step {}" {
-    // TODO
-}
+// test "Vm.step noncmd and !*>^_|" {
+//     var vm1 = @constCast(
+// 		    &DefaultVm.withRw(
+// 			std.io.getStdIn().reader(),
+// 			std.io.getStdOut().writer())
+// 		    .runner(SimpleRunner))
+// 	    .init();
+//     _ = try vm1.step();
+//     _ = try vm1.step();
+//     _ = try vm1.step();
+//     try std.testing.expect(vm1.a == 0);
+//     try std.testing.expect(vm1.c == 3);
+//     try std.testing.expect(vm1.d == 3);
+// 
+//     vm1.mem[3] = 33;
+//     try std.testing.expect(try vm1.step() == .haltByHaltCommand);
+//     try std.testing.expect(vm1.c == 3);
+//     try std.testing.expect(vm1.d == 3);
+// 
+//     vm1.status = .running;
+//     vm1.mem[3] = 42;
+//     _ = try vm1.step();
+//     try std.testing.expect(vm1.c == 4);
+//     try std.testing.expect(vm1.d == 43);
+// 
+//     _ = try vm1.step();
+//     try std.testing.expect(vm1.c == 5);
+//     try std.testing.expect(vm1.d == 44);
+// 
+//     vm1.d = 59048;
+//     _ = try vm1.step();
+//     try std.testing.expect(vm1.c == 6);
+//     try std.testing.expect(vm1.d == 0);
+// 
+//     vm1.mem[6] = 62;
+//     vm1.mem[0] = 62;
+//     _ = try vm1.step();
+//     try std.testing.expect(vm1.a == 19683*2+20);
+//     try std.testing.expect(vm1.mem[0] == 19683*2+20);
+//     try std.testing.expect(vm1.c == 7);
+//     try std.testing.expect(vm1.d == 1);
+// 
+//     vm1.mem[7] = 94;
+//     _ = try vm1.step();
+//     try std.testing.expect(vm1.c == 1);
+//     try std.testing.expect(vm1.d == 2);
+// 
+//     vm1.mem[1] = 95;
+//     vm1.mem[2] = 33 + 256;
+//     _ = try vm1.step();
+//     _ = try vm1.step();
+//     try std.testing.expect(vm1.c == 3);
+//     try std.testing.expect(vm1.d == 4);
+//     try std.testing.expect(vm1.mem[1] == 95);
+//     try std.testing.expect(vm1.mem[2] == 33 + 256);
+//     try std.testing.expect(vm1.mem[3] == 42);
+// 
+//     // Skipping write, read at this point
+// 
+//     vm1.mem[3] = 124;
+//     vm1.mem[4] = 48272;
+//     try std.testing.expect(vm1.a == 19683*2+20);
+// 
+//     _ = try vm1.step();
+// 
+//     const xopr0 = dis_math.DefaultMath.opr(19683*2+20, 48272);
+//     try std.testing.expect(vm1.a == xopr0);
+//     try std.testing.expect(vm1.mem[4] == xopr0);
+//     try std.testing.expect(vm1.c == 4);
+//     try std.testing.expect(vm1.d == 5);
+// }
+// 
+// test "Vm().step {}" {
+//     const parse = @import("./parse.zig");
+// 
+//     const rs0 = "Hi world";
+//     var rf0 = std.io.fixedBufferStream(rs0);
+//     const r0 = rf0.reader();
+// 
+//     var ws0: [8]u8 = undefined;
+//     var wf0 = std.io.fixedBufferStream(&ws0);
+//     const w0 = wf0.writer();
+// 
+//     const M0 = Vm(dis_math.DefaultMath, r0, w0);
+// 
+//     // Taken from Ben Olmstead's example program.
+//     const cat0 = "*^********************************}{*^*****!***";
+//     var fp0 = std.io.fixedBufferStream(cat0);
+//     const rp0 = fp0.reader();
+// 
+//     var m0 = try parse.parseFromReader(M0, rp0);
+//     while ( m0.step() != .haltByEofWrite ) {}
+// 
+//     try std.testing.expectEq(ws0, "Hi world");
+// }
