@@ -65,7 +65,7 @@ pub fn Math(
 	    const least_digit = x % base;
 	    const head_digits = x / base;
 	    const left_shift_mult = END / base;
-	    return head_digits + least_digit * left_shift_mult;
+	    return @truncate(head_digits + least_digit * left_shift_mult);
 	}
 
         /// For each digit, do subtraction without carry.
@@ -102,9 +102,9 @@ pub fn Math(
 	    const y0 = y % END;
 
 	    const z0 = @addWithOverflow(x0, y0);
-	    if ( z0[1] == 0 ) return z0[0] % END;
+	    if ( z0[1] == 0 ) return @truncate(z0[0] % END);
 
-	    return (x0 - (END - y0)) % END;
+	    return @truncate((x0 - (END - y0)) % END);
 	}
 
 	comptime {
