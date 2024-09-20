@@ -7,15 +7,17 @@ const dis_math = @import("dis-math.zig");
 /// Make a virtual machine that works on specified Math type.
 pub fn Vm(
 	/// dis-math.zig Math()
-	comptime Math: type,
+	comptime Math_: type,
 	/// As in std.io.GenericReader. Has method `readByte`.
 	comptime reader: anytype,
 	/// As in std.io.GenericWriter. Has method `writeByte`.
 	comptime writer: anytype
 ) type {
 
-    const T: type = Math.T;
+    const T: type = Math_.T;
     return struct {
+	pub const Math = Math_;
+
 	/// Accumulator.
 	a: T = 0,
 
