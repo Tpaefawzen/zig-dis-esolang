@@ -49,14 +49,16 @@ pub fn Vm(
 
 	/// `incrementCAndD` until `self.c` gets to `z`.
 	pub fn setC(self: *@This(), z: T) void {
-	    if ( z == self.c ) return;
 	    if ( z < self.c ) {
-		const x00 = self.c - z;
-		const x = Math.END - x00;
+		const diff = self.c - z;
 		self.c = z;
-		self.d = Math.increment(self.d, x);
+		self.d = Math.decrement(self.d, diff);
+		return;
 	    }
-	    unreachable;
+	    // z > self.c
+	    const diff = z - self.c;
+	    self.c = z;
+	    self.d = Math.increment(self.d, diff);
 	}
 
 	/// Maybe called by Runner{}.step(); reference implementation of
