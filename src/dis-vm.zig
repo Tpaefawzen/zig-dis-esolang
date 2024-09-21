@@ -89,13 +89,30 @@ pub fn Vm(
 	    self.mem[self.d] = self.a;
 	}
 	fn jmp(self: *@This()) void { self.c = self.mem[self.d]; }
+
+	/// HACK: too verbose way to do polymorphism.
 	fn write(self: *@This(), writer: anytype) void {
 	    if ( self.a == Math.MAX ) {
 		self.status = .{ .halt = .eofWrite };
 		return;
 	    }
-	    if ( @TypeOf(writer) == @TypeOf(null) ) return;
-	    if ( @typeInfo(@TypeOf(writer)) == .Pointer ) return write(self, writer.*);
+	    comptime var result: enum { Fail, Null, Struct, } = undefined;
+	    comptime var writer_ = undefined;
+	    result = switch ( @typeInfo(@TypeOf(writer)) ) {
+		.Type, .Void, .Bool, .NoReturn, .Int, .Float => .Fail,
+		.Pointer => return write(self, writer.*),
+		.Array => .Fail,
+		.Struct => .Struct,
+		.ComptimeFloat, .ComptimeInt, .Undefined => .Fail,
+		.Null => .Null,
+		.Optional => if ( writer ) return write(self, writer.?) else .Null,
+		.ErrorUnion, .ErrorSet, .Enum, .Union, .Fn => .Fail,
+		.Opaque => l: { writer_ = writer; break :l .Struct; },
+		.Frame, .AnyFrame, .Vector, .EnumLiteral => .Fail,
+	    };
+
+	    if ( result == .Null ) return;
+	    if ( result == .Fail ) @compileError("writer must be null or something with method writeByte");
 	    writer.writeByte(@truncate(self.a)) catch |err| {
 		self.status = .{ .halt = .{ .writeError = err }};
 	    };
