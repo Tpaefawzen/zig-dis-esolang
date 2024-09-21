@@ -59,11 +59,11 @@ pub fn Vm(
 	/// executing a command based on current mem[c].
 	pub fn runCommand(
 		self: *@This(),
-		/// `null` or pointer to something that has method `readByte`.
+		/// `null` or something that has method `readByte`.
 		/// If `null` is given then it's like a null-device;
 		/// treats as if error.EndOfStream were reached.
 		reader: anytype,
-		/// `null` or pointer to something that has method `writeByte`.
+		/// `null` or something that has method `writeByte`.
 		/// If `null` is given then `output` command results in doing
 		/// nothing with no error.
 		writer: anytype
@@ -90,7 +90,6 @@ pub fn Vm(
 	}
 	fn jmp(self: *@This()) void { self.c = self.mem[self.d]; }
 
-	/// HACK: too verbose way to do polymorphism.
 	fn write(self: *@This(), writer: anytype) void {
 	    if ( self.a == Math.MAX ) {
 		self.status = .{ .halt = .eofWrite };
@@ -98,40 +97,35 @@ pub fn Vm(
 	    }
 	    
 	    switch ( @typeInfo(@TypeOf(writer)) ) {
-		.Type, .Void, .Bool, .NoReturn, .Int, .Float => writeFail(),
-		.Pointer => return write(self, writer.*),
-		.Array => writeFail(),
-		.Struct => {},
-		.ComptimeFloat, .ComptimeInt, .Undefined => writeFail(),
 		.Null => return,
+		.Pointer => return write(self, writer.*),
 		.Optional => if ( writer ) return write(self, writer.?) else return,
-		.ErrorUnion, .ErrorSet, .Enum, .Union, .Fn => writeFail(),
-		.Opaque => {},
-		.Frame, .AnyFrame, .Vector, .EnumLiteral => writeFail(),
+		.Struct, .Enum, .Union, .Opaque => {},
+		else => {},
 	    }
 
 	    writer.writeByte(@truncate(self.a)) catch |err| {
 		self.status = .{ .halt = .{ .writeError = err }};
 	    };
 	}
-	fn writeFail() noreturn { @compileError("writer must be null or something with method writeByte"); }
 
 	fn opr(self: *@This()) void {
 	    self.a = Math.opr(self.a, self.mem[self.d]);
 	    self.mem[self.d] = self.a;
 	}
+
 	fn read(self: *@This(), reader: anytype) void {
-	    if ( @TypeOf(reader) == @TypeOf(null) ) {
-		self.a = Math.MAX;
-		return;
-	    }
-	    if ( @typeInfo(@TypeOf(reader)) == .Pointer ) return read(self, reader.*);
-	    self.a = reader.readByte() catch |err| l: {
+	    self.a = switch ( @typeInfo(@TypeOf(reader)) ) {
+		.Null => Math.MAX,
+		.Pointer => return read(self, reader.*),
+		.Optional => if ( reader ) return read(self, reader.?) else Math.MAX,
+		else => reader.readByte() catch |err| l: {
 		    if ( err != error.EndOfStream ) {
 			self.status = .{ .readError = err };
 		    }
 		    break :l Math.MAX;
-		};
+		},
+	    };
 	}
     };
 }
