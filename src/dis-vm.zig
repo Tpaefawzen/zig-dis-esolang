@@ -96,26 +96,26 @@ pub fn Vm(
 		self.status = .{ .halt = .eofWrite };
 		return;
 	    }
-	    comptime var result: enum { Fail, Null, Struct, } = undefined;
-	    result = switch ( @typeInfo(@TypeOf(writer)) ) {
-		.Type, .Void, .Bool, .NoReturn, .Int, .Float => .Fail,
+	    
+	    switch ( @typeInfo(@TypeOf(writer)) ) {
+		.Type, .Void, .Bool, .NoReturn, .Int, .Float => writeFail(),
 		.Pointer => return write(self, writer.*),
-		.Array => .Fail,
-		.Struct => .Struct,
-		.ComptimeFloat, .ComptimeInt, .Undefined => .Fail,
-		.Null => .Null,
-		.Optional => if ( writer ) return write(self, writer.?) else .Null,
-		.ErrorUnion, .ErrorSet, .Enum, .Union, .Fn => .Fail,
-		.Opaque => .Struct,
-		.Frame, .AnyFrame, .Vector, .EnumLiteral => .Fail,
-	    };
+		.Array => writeFail(),
+		.Struct => {},
+		.ComptimeFloat, .ComptimeInt, .Undefined => writeFail(),
+		.Null => return,
+		.Optional => if ( writer ) return write(self, writer.?) else return,
+		.ErrorUnion, .ErrorSet, .Enum, .Union, .Fn => writeFail(),
+		.Opaque => {},
+		.Frame, .AnyFrame, .Vector, .EnumLiteral => writeFail(),
+	    }
 
-	    if ( result == .Null ) return;
-	    if ( result == .Fail ) @compileError("writer must be null or something with method writeByte");
 	    writer.writeByte(@truncate(self.a)) catch |err| {
 		self.status = .{ .halt = .{ .writeError = err }};
 	    };
 	}
+	fn writeFail() noreturn { @compileError("writer must be null or something with method writeByte"); }
+
 	fn opr(self: *@This()) void {
 	    self.a = Math.opr(self.a, self.mem[self.d]);
 	    self.mem[self.d] = self.a;
