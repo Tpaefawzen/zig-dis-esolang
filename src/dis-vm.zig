@@ -96,9 +96,9 @@ pub fn Vm(
 		self.status = .{ .halt = .eofWrite };
 		return;
 	    }
-	    comptime var result: enum { Fail, Null, Struct, } = undefined;
-	    result = switch ( @typeInfo(@TypeOf(writer)) ) {
-		.Type, .Void, .Bool, .NoReturn, .Int, .Float => .Fail,
+	    fn fail() noreturn { @compileError("writer must be null or something with method writeByte");
+	    switch ( @typeInfo(@TypeOf(writer)) ) {
+		.Type, .Void, .Bool, .NoReturn, .Int, .Float => fail(),
 		.Pointer => return write(self, writer.*),
 		.Array => .Fail,
 		.Struct => .Struct,
@@ -108,10 +108,8 @@ pub fn Vm(
 		.ErrorUnion, .ErrorSet, .Enum, .Union, .Fn => .Fail,
 		.Opaque => .Struct,
 		.Frame, .AnyFrame, .Vector, .EnumLiteral => .Fail,
-	    };
+	    }
 
-	    if ( result == .Null ) return;
-	    if ( result == .Fail ) @compileError("writer must be null or something with method writeByte");
 	    writer.writeByte(@truncate(self.a)) catch |err| {
 		self.status = .{ .halt = .{ .writeError = err }};
 	    };
