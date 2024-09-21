@@ -30,24 +30,18 @@ pub fn Vm(
 	}
 
 	/// Increment C and D by one; in Dis this is how it is stepped.
-	pub fn incrCAndD(self: *@This()) void {
+	pub fn incrC(self: *@This()) void {
 	    self.c = Math.incr(self.c);
 	    self.d = Math.incr(self.d);
 	}
 
-	/// Alias of `incrCAndD`.
-	pub const incrC = incrementCAndD;
-
-	/// Like `incrCAndD`; custom incrementation-value.
-	pub fn incrementCAndD(self: *@This(), x: T) void {
+	/// Like `incrC`; custom incrementation-value.
+	pub fn incrementC(self: *@This(), x: T) void {
 	    self.c = Math.increment(self.c, x);
 	    self.d = Math.increment(self.d, x);
 	}
 
-	/// Alias of `incrementCAndD`.
-	pub const incrementC = incrementCAndD;
-
-	/// `incrementCAndD` until `self.c` gets to `z`.
+	/// `incrementC` until `self.c` gets to `z`.
 	pub fn setC(self: *@This(), z: T) void {
 	    if ( z < self.c ) {
 		const diff = self.c - z;
@@ -100,8 +94,9 @@ pub fn Vm(
 		self.status = .{ .halt = .eofWrite };
 		return;
 	    }
-	    if ( writer == null ) { return; }
-	    writer.*.writeByte(@truncate(self.a)) catch |err| {
+	    if ( @TypeOf(writer) == @TypeOf(null) ) return;
+	    if ( @typeInfo(@TypeOf(writer)) == .Pointer ) return write(self, writer.*);
+	    writer.writeByte(@truncate(self.a)) catch |err| {
 		self.status = .{ .halt = .{ .writeError = err }};
 	    };
 	}
@@ -110,8 +105,12 @@ pub fn Vm(
 	    self.mem[self.d] = self.a;
 	}
 	fn read(self: *@This(), reader: anytype) void {
-	    self.a = if ( reader == null ) Math.MAX
-	    	else reader.*.readByte() catch |err| l: {
+	    if ( @TypeOf(reader) == @TypeOf(null) ) {
+		self.a = Math.MAX;
+		return;
+	    }
+	    if ( @typeInfo(@TypeOf(reader)) == .Pointer ) return read(self, reader.*);
+	    self.a = reader.readByte() catch |err| l: {
 		    if ( err != error.EndOfStream ) {
 			self.status = .{ .readError = err };
 		    }
@@ -181,12 +180,31 @@ test DefaultVm {
     vm1.runCommand(null, null);
 
     vm1.c = 59048;
-    vm1.incrCAndD();
+    vm1.incrC();
     try std.testing.expect(vm1.c == 0 and vm1.d == 1);
 
     vm1.d = 59040;
     vm1.incrementC(10);
     try std.testing.expect(vm1.c == 10 and vm1.d == 1);
+
+    // Run a command with specified reader and writer.
+    vm1.runCommand(std.io.getStdIn().reader(), std.io.getStdOut().writer());
+    vm1.runCommand(&@constCast(&std.io.getStdIn().reader()), &@constCast(&std.io.getStdOut().writer()));
+
+    // Cat test
+    vm1.c = 0; vm1.d = 0; vm1.mem[0] = '}'; vm1.mem[1] = '{';
+    vm1.runCommand(null, null);
+    vm1.incrC();
+    vm1.runCommand(null, null);
+    vm1.incrC();
+    vm1.runCommand(null, null);
+    vm1.incrC();
+    try std.testing.expect(vm1.status == .halt);
+
+    // const rs = "Hi";
+
+    // vm1.c = 0; vm1.d = 0; vm1.mem[0] = '}'; vm1.mem[1] = '{';
+    // vm1.runCommand(std.io.getStdIn().reader(), std.io.getStdOut().writer());
 }
 
 // test "Vm.step noncmd and !*>^_|" {
