@@ -97,7 +97,6 @@ pub fn Vm(
 		return;
 	    }
 	    comptime var result: enum { Fail, Null, Struct, } = undefined;
-	    comptime var writer_ = undefined;
 	    result = switch ( @typeInfo(@TypeOf(writer)) ) {
 		.Type, .Void, .Bool, .NoReturn, .Int, .Float => .Fail,
 		.Pointer => return write(self, writer.*),
@@ -107,7 +106,7 @@ pub fn Vm(
 		.Null => .Null,
 		.Optional => if ( writer ) return write(self, writer.?) else .Null,
 		.ErrorUnion, .ErrorSet, .Enum, .Union, .Fn => .Fail,
-		.Opaque => l: { writer_ = writer; break :l .Struct; },
+		.Opaque => .Struct,
 		.Frame, .AnyFrame, .Vector, .EnumLiteral => .Fail,
 	    };
 
