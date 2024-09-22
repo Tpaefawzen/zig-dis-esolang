@@ -2,8 +2,10 @@
 
 const std = @import("std");
 
+const dis = @import("./root.zig");
+
 /// Program name.
-var arg0: [:0]const u8 = undefined;
+var arg0: []const u8 = undefined;
 
 /// Print usage and exit.
 fn usage(succeed: bool) noreturn {
@@ -25,6 +27,17 @@ pub fn main() !void {
 	    std.process.exit(1);
 	};
     defer file.close();
+
+    const Vm = dis.vm.DefaultVm;
+    const vm = dis.compile.compileFromReader(Vm, file.reader()) catch |err| {
+	    std.debug.print("{s}: Compile failed: {s}\n", .{ arg0, @errorName(err) });
+	    std.process.exit(2);
+	};
+
+    var runningEnv = dis.runners.naiveRunner(vm);
+    const stdin = std.io.getStdIn().reader();
+    const stdout = std.io.getStdOut().writer();
+    while ( try runningEnv.step(stdin, stdout) ) {}
 
     std.process.exit(0);
 }
