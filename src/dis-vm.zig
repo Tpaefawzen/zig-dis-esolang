@@ -22,7 +22,7 @@ pub fn Vm(
 	/// Program memory, data and code are shared.
 	mem: [Math.END]T = [_]T{0} ** Math.END,
 	/// Running status.
-	status: VmStatus = .running,
+	status: VmStatus = .Running,
 
 	/// Method-chain-style constructor for `Runner`.
 	pub fn runner(self: @This(), comptime Runner: type) Runner {
@@ -69,19 +69,19 @@ pub fn Vm(
 		writer: anytype
 	) void {
 	    switch ( decodeCommand(self.mem[self.c]) ) {
-		.halt => halt(self),
-		.load => load(self),
-		.rot => rot(self),
-		.jmp => jmp(self),
-		.nop => {},
-		.write => write(self, writer),
-		.opr => opr(self),
-		.read => read(self, reader),
+		.Halt => halt(self),
+		.Load => load(self),
+		.Rot => rot(self),
+		.Jmp => jmp(self),
+		.Nop => {},
+		.Write => write(self, writer),
+		.Opr => opr(self),
+		.Read => read(self, reader),
 	    }
 	}
 
 	fn halt(self: *@This()) void {
-	    self.status = .{ .halt = .haltCommand };
+	    self.status = .{ .Halt = .HaltCommand };
 	}
 	fn load(self: *@This()) void { self.d = self.mem[self.d]; }
 	fn rot(self: *@This()) void {
@@ -92,7 +92,7 @@ pub fn Vm(
 
 	fn write(self: *@This(), writer: anytype) void {
 	    if ( self.a == Math.MAX ) {
-		self.status = .{ .halt = .eofWrite };
+		self.status = .{ .Halt = .EofWrite };
 		return;
 	    }
 
@@ -106,7 +106,7 @@ pub fn Vm(
 	    };
 
 	    w.writeByte(@truncate(self.a)) catch |err| {
-		self.status = .{ .halt = .{ .writeError = err }};
+		self.status = .{ .Halt = .{ .WriteError = err }};
 	    };
 	}
 
@@ -122,14 +122,14 @@ pub fn Vm(
 		.Null => Math.MAX,
 		.Pointer => reader.*.readByte() catch |err| l: {
 			    if ( err != error.EndOfStream ) {
-				self.status = .{ .readError = err };
+				self.status = .{ .ReadError = err };
 			    }
 			    break :l Math.MAX;
 			},
 		.Optional => if ( reader ) return read(self, reader.?) else Math.MAX,
 		else => reader.readByte() catch |err| l: {
 			    if ( err != error.EndOfStream ) {
-				self.status = .{ .readError = err };
+				self.status = .{ .ReadError = err };
 			    }
 			    break :l Math.MAX;
 			},
@@ -139,19 +139,19 @@ pub fn Vm(
 }
 
 pub const VmStatusTag = enum {
-    running, halt, readError,
+    Running, Halt, ReadError,
 };
 
 pub const VmStatus = union(VmStatusTag) {
-    running, halt: HaltReason, readError: anyerror,
+    Running, Halt: HaltReason, ReadError: anyerror,
 
     pub const HaltReason = union(enum) {
 	/// mem[C] is halt command.
-	haltCommand,
+	HaltCommand,
 	/// A is Math().MAX and mem[C] is write command.
-	eofWrite,
+	EofWrite,
 	/// E.g. SIGPIPE, or something
-	writeError: anyerror,
+	WriteError: anyerror,
     };
 };
 
@@ -169,19 +169,19 @@ pub const SimpleRunner = struct {
 };
 
 /// Eight commands specified in Dis.
-pub const Command = enum { halt, load, rot, jmp, nop, write, opr, read, };
+pub const Command = enum { Halt, Load, Rot, Jmp, Nop, Write, Opr, Read, };
 
 pub inline fn decodeCommand(char_code: anytype) Command {
     return switch ( char_code ) {
-    33 => .halt,
-    42 => .load,
-    62 => .rot,
-    94 => .jmp,
-    95 => .nop,
-    123 => .write,
-    124 => .opr,
-    125 => .read,
-    else => .nop,
+    33 => .Halt,
+    42 => .Load,
+    62 => .Rot,
+    94 => .Jmp,
+    95 => .Nop,
+    123 => .Write,
+    124 => .Opr,
+    125 => .Read,
+    else => .Nop,
     };
 }
 
@@ -217,14 +217,14 @@ test DefaultVm {
     vm1.incrC();
     vm1.runCommand(null, null);
     vm1.incrC();
-    try std.testing.expect(vm1.status == .halt);
+    try std.testing.expect(vm1.status == .Halt);
 
     // Cat test with actual reader and writer
     const rs = [_]u8{ 'H', 'i' };
     const reader0 = @constCast(&std.io.fixedBufferStream(&rs)).reader();
     var ws: [2]u8 = undefined;
     const writer0 = @constCast(&std.io.fixedBufferStream(&ws)).writer();
-    vm1.c = 0; vm1.d = 0;
+    vm1.c = 0; vm1.d = 0; vm1.status = .Running;
     vm1.runCommand(&reader0, &writer0);
     vm1.incrC();
     vm1.runCommand(&reader0, &writer0);
@@ -247,7 +247,7 @@ test DefaultVm {
     vm1.runCommand(reader0, writer0);
     vm1.incrC();
     vm1.runCommand(reader0, writer0);
-    try std.testing.expect(vm1.status == .halt and vm1.status.halt == .eofWrite);
+    try std.testing.expect(vm1.status == .Halt and vm1.status.Halt == .EofWrite);
 }
 
 // test "Vm.step noncmd and !*>^_|" {
