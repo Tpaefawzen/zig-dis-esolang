@@ -27,10 +27,10 @@ pub fn Vm(
 	/// Constructor.
 	pub fn init() @This() { return @This(){}; }
 
-	/// Method-chain-style constructor for `Runner`.
-	pub fn runner(self: @This(), comptime Runner: type) Runner {
-	    return .{ .vm = self };
-	}
+// 	/// Method-chain-style constructor for `Runner`.
+// 	pub fn runner(self: @This(), runnerFn: *const fn(anytype, anytype, anytype) struct, reader: anytype, writer: anytype) struct {
+// 	    return runnerFn(self, reader, writer);
+// 	}
 
 	/// Increment C and D by one; in Dis this is how it is stepped.
 	pub fn incrC(self: *@This()) void {
@@ -356,7 +356,7 @@ test DefaultVm {
 // }
 // 
 // test "Vm().step {}" {
-//     const parse = @import("./parse.zig");
+//     const compile = @import("./compile.zig");
 // 
 //     const rs0 = "Hi world";
 //     var rf0 = std.io.fixedBufferStream(rs0);
@@ -373,7 +373,7 @@ test DefaultVm {
 //     var fp0 = std.io.fixedBufferStream(cat0);
 //     const rp0 = fp0.reader();
 // 
-//     var m0 = try parse.parseFromReader(M0, rp0);
+//     var m0 = try compile.compileFromReader(M0, rp0);
 //     while ( m0.step() != .haltByEofWrite ) {}
 // 
 //     try std.testing.expectEq(ws0, "Hi world");
