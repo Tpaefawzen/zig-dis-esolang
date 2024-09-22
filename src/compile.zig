@@ -56,8 +56,9 @@ pub fn compileFromReader(
 }
 
 test compileFromReader {
+    const __root__ = @import("./root.zig");
     const DefaultVm = vm.DefaultVm;
-    // const nativeRunner = @import("Runner.zig").runner0;
+    const naiveRunner = __root__.runners.naiveRunner;
 
     const source0 =
 	\\ (123456789012345678)
@@ -67,12 +68,12 @@ test compileFromReader {
 	;
     var fbs0 = std.io.fixedBufferStream(source0);
     const reader0 = fbs0.reader();
-    var vm0 = try compileFromReader(DefaultVm, reader0);
+    const vm0 = try compileFromReader(DefaultVm, reader0);
     try std.testing.expect(vm0.mem[51] == '_');
     try std.testing.expect(vm0.mem[52] == 0);
 
-    var runner0 = @import("Runner.zig").@"0".init(.{.vm = &vm0, .reader = null, .writer = null});
-    try std.testing.expect(try @import("Runner.zig").@"0".step(&runner0));
+    var runner0 = naiveRunner(vm0);
+    try std.testing.expect(try runner0.step(null, null));
 
 //     const s1 = "";
 //     var f1 = std.io.fixedBufferStream(s1);
