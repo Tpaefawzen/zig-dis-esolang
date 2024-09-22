@@ -44,6 +44,18 @@ pub fn Vm(
 	    self.d = Math.increment(self.d, x);
 	}
 
+	/// Like `incrC` but decrement version
+	pub fn decrC(self: *@This()) void {
+	    self.c = Math.decr(self.c);
+	    self.d = Math.decr(self.d);
+	}
+
+	/// Like `decrC` but custom decrementation-value.
+	pub fn decrementC(self: *@This(), x: T) void {
+	    self.c = Math.decrement(self.c, x);
+	    self.d = Math.decrement(self.d, x);
+	}
+
 	/// `incrementC` until `self.c` gets to `z`.
 	pub fn setC(self: *@This(), z: T) void {
 	    if ( z < self.c ) {
@@ -201,6 +213,8 @@ test DefaultVm {
 
     vm1.runCommand(null, null);
 
+    // incrC-like methods test
+    // Wraparound test
     vm1.c = 59048;
     vm1.incrC();
     try std.testing.expect(vm1.c == 0 and vm1.d == 1);
@@ -208,6 +222,17 @@ test DefaultVm {
     vm1.d = 59040;
     vm1.incrementC(10);
     try std.testing.expect(vm1.c == 10 and vm1.d == 1);
+    vm1.setC(12);
+    try std.testing.expect(vm1.c == 12 and vm1.d == 3);
+    vm1.setC(10);
+    try std.testing.expect(vm1.c == 10 and vm1.d == 1);
+    vm1.decrementC(2);
+    try std.testing.expect(vm1.c == 8 and vm1.d == 59048);
+
+    vm1.c = 59048;
+    vm1.d = 59048-16;
+    vm1.setC(5);
+    try std.testing.expect(vm1.c == 5 and vm1.d == 5-16+59049);
 
     // Run a command with specified reader and writer.
     vm1.runCommand(std.io.getStdIn().reader(), std.io.getStdOut().writer());
