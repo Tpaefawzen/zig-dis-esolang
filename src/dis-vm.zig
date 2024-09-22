@@ -27,11 +27,6 @@ pub fn Vm(
 	/// Constructor.
 	pub fn init() @This() { return @This(){}; }
 
-// 	/// Method-chain-style constructor for `Runner`.
-// 	pub fn runner(self: @This(), runnerFn: *const fn(anytype, anytype, anytype) struct, reader: anytype, writer: anytype) struct {
-// 	    return runnerFn(self, reader, writer);
-// 	}
-
 	/// Increment C and D by one; in Dis this is how it is stepped.
 	pub fn incrC(self: *@This()) void {
 	    self.c = Math.incr(self.c);
@@ -281,100 +276,47 @@ test DefaultVm {
     const writer2 = @constCast(&std.io.fixedBufferStream(&ws2)).writer();
     vm2.runCommand(null, writer2);
     try std.testing.expect(vm2.status.Halt == .WriteError);
-}
 
-// test "Vm.step noncmd and !*>^_|" {
-//     var vm1 = @constCast(
-// 		    &DefaultVm.withRw(
-// 			std.io.getStdIn().reader(),
-// 			std.io.getStdOut().writer())
-// 		    .runner(SimpleRunner))
-// 	    .init();
-//     _ = try vm1.step();
-//     _ = try vm1.step();
-//     _ = try vm1.step();
-//     try std.testing.expect(vm1.a == 0);
-//     try std.testing.expect(vm1.c == 3);
-//     try std.testing.expect(vm1.d == 3);
-// 
-//     vm1.mem[3] = 33;
-//     try std.testing.expect(try vm1.step() == .haltByHaltCommand);
-//     try std.testing.expect(vm1.c == 3);
-//     try std.testing.expect(vm1.d == 3);
-// 
-//     vm1.status = .running;
-//     vm1.mem[3] = 42;
-//     _ = try vm1.step();
-//     try std.testing.expect(vm1.c == 4);
-//     try std.testing.expect(vm1.d == 43);
-// 
-//     _ = try vm1.step();
-//     try std.testing.expect(vm1.c == 5);
-//     try std.testing.expect(vm1.d == 44);
-// 
-//     vm1.d = 59048;
-//     _ = try vm1.step();
-//     try std.testing.expect(vm1.c == 6);
-//     try std.testing.expect(vm1.d == 0);
-// 
-//     vm1.mem[6] = 62;
-//     vm1.mem[0] = 62;
-//     _ = try vm1.step();
-//     try std.testing.expect(vm1.a == 19683*2+20);
-//     try std.testing.expect(vm1.mem[0] == 19683*2+20);
-//     try std.testing.expect(vm1.c == 7);
-//     try std.testing.expect(vm1.d == 1);
-// 
-//     vm1.mem[7] = 94;
-//     _ = try vm1.step();
-//     try std.testing.expect(vm1.c == 1);
-//     try std.testing.expect(vm1.d == 2);
-// 
-//     vm1.mem[1] = 95;
-//     vm1.mem[2] = 33 + 256;
-//     _ = try vm1.step();
-//     _ = try vm1.step();
-//     try std.testing.expect(vm1.c == 3);
-//     try std.testing.expect(vm1.d == 4);
-//     try std.testing.expect(vm1.mem[1] == 95);
-//     try std.testing.expect(vm1.mem[2] == 33 + 256);
-//     try std.testing.expect(vm1.mem[3] == 42);
-// 
-//     // Skipping write, read at this point
-// 
-//     vm1.mem[3] = 124;
-//     vm1.mem[4] = 48272;
-//     try std.testing.expect(vm1.a == 19683*2+20);
-// 
-//     _ = try vm1.step();
-// 
-//     const xopr0 = dis_math.DefaultMath.opr(19683*2+20, 48272);
-//     try std.testing.expect(vm1.a == xopr0);
-//     try std.testing.expect(vm1.mem[4] == xopr0);
-//     try std.testing.expect(vm1.c == 4);
-//     try std.testing.expect(vm1.d == 5);
-// }
-// 
-// test "Vm().step {}" {
-//     const compile = @import("./compile.zig");
-// 
-//     const rs0 = "Hi world";
-//     var rf0 = std.io.fixedBufferStream(rs0);
-//     const r0 = rf0.reader();
-// 
-//     var ws0: [8]u8 = undefined;
-//     var wf0 = std.io.fixedBufferStream(&ws0);
-//     const w0 = wf0.writer();
-// 
-//     const M0 = Vm(dis_math.DefaultMath, r0, w0);
-// 
-//     // Taken from Ben Olmstead's example program.
-//     const cat0 = "*^********************************}{*^*****!***";
-//     var fp0 = std.io.fixedBufferStream(cat0);
-//     const rp0 = fp0.reader();
-// 
-//     var m0 = try compile.compileFromReader(M0, rp0);
-//     while ( m0.step() != .haltByEofWrite ) {}
-// 
-//     try std.testing.expectEq(ws0, "Hi world");
-// }
+    // "!"
+    var vm3 = DefaultVm.init();
+    vm3.mem[0] = '!';
+    vm3.runCommand(null, null);
+    try std.testing.expect(vm3.status.Halt == .HaltCommand);
+
+    // "*"
+    vm3.status = .Running;
+    vm3.mem[0] = '*';
+    vm3.d = 25;
+    vm3.mem[25] = 489;
+    vm3.runCommand(null, null);
+    try std.testing.expect(vm3.d == 489);
+
+    // ">"
+    vm3.mem[0] = '>';
+    vm3.mem[489] = 62;
+    vm3.runCommand(null, null);
+    try std.testing.expect(vm3.a == 20 + 19683*2);
+    try std.testing.expect(vm3.mem[489] == 20 + 19683*2);
+
+    // "^"
+    vm3.mem[0] = '^';
+    vm3.mem[489] = 21;
+    vm3.runCommand(null, null);
+    try std.testing.expect(vm3.c == 21);
+
+    // "_"
+    vm3.mem[21] = '_';
+    vm3.runCommand(null, null);
+    try std.testing.expect(vm3.c == 21);
+    try std.testing.expect(vm3.d == 489);
+    try std.testing.expect(vm3.a == 20 + 19683*2);
+    try std.testing.expect(vm3.mem[489] == 21);
+
+    // "|"
+    vm3.mem[489] = 238;
+    vm3.a = 47;
+    vm3.mem[21] = '|';
+    vm3.runCommand(null, null);
+    try std.testing.expect(vm3.a == DefaultVm.Math.opr(47, 238));
+    try std.testing.expect(vm3.mem[489] == DefaultVm.Math.opr(47, 238));
+}
