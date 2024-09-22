@@ -95,16 +95,17 @@ pub fn Vm(
 		self.status = .{ .halt = .eofWrite };
 		return;
 	    }
-	    
-	    switch ( @typeInfo(@TypeOf(writer)) ) {
-		.Null => return,
-		.Pointer => return write(self, writer.*),
-		.Optional => if ( writer ) return write(self, writer.?) else return,
-		.Struct, .Enum, .Union, .Opaque => {},
-		else => {},
-	    }
 
-	    writer.writeByte(@truncate(self.a)) catch |err| {
+	    // @compileLog(writer);
+	    
+	    const w = switch ( @typeInfo(@TypeOf(writer)) ) {
+		.Null => return,
+		.Pointer => writer.*,
+		.Optional => if ( writer ) return write(self, writer.?) else return,
+		else => writer,
+	    };
+
+	    w.writeByte(@truncate(self.a)) catch |err| {
 		self.status = .{ .halt = .{ .writeError = err }};
 	    };
 	}
@@ -115,16 +116,23 @@ pub fn Vm(
 	}
 
 	fn read(self: *@This(), reader: anytype) void {
+	    // @compileLog(reader);
+
 	    self.a = switch ( @typeInfo(@TypeOf(reader)) ) {
 		.Null => Math.MAX,
-		.Pointer => return read(self, reader.*),
+		.Pointer => reader.*.readByte() catch |err| l: {
+			    if ( err != error.EndOfStream ) {
+				self.status = .{ .readError = err };
+			    }
+			    break :l Math.MAX;
+			},
 		.Optional => if ( reader ) return read(self, reader.?) else Math.MAX,
 		else => reader.readByte() catch |err| l: {
-		    if ( err != error.EndOfStream ) {
-			self.status = .{ .readError = err };
-		    }
-		    break :l Math.MAX;
-		},
+			    if ( err != error.EndOfStream ) {
+				self.status = .{ .readError = err };
+			    }
+			    break :l Math.MAX;
+			},
 	    };
 	}
     };
@@ -201,7 +209,7 @@ test DefaultVm {
     vm1.runCommand(std.io.getStdIn().reader(), std.io.getStdOut().writer());
     vm1.runCommand(&@constCast(&std.io.getStdIn().reader()), &@constCast(&std.io.getStdOut().writer()));
 
-    // Cat test
+    // Cat test with null reader and null writer
     vm1.c = 0; vm1.d = 0; vm1.mem[0] = '}'; vm1.mem[1] = '{';
     vm1.runCommand(null, null);
     vm1.incrC();
@@ -211,10 +219,35 @@ test DefaultVm {
     vm1.incrC();
     try std.testing.expect(vm1.status == .halt);
 
-    // const rs = "Hi";
+    // Cat test with actual reader and writer
+    const rs = [_]u8{ 'H', 'i' };
+    const reader0 = @constCast(&std.io.fixedBufferStream(&rs)).reader();
+    var ws: [2]u8 = undefined;
+    const writer0 = @constCast(&std.io.fixedBufferStream(&ws)).writer();
+    vm1.c = 0; vm1.d = 0;
+    vm1.runCommand(&reader0, &writer0);
+    vm1.incrC();
+    vm1.runCommand(&reader0, &writer0);
+    vm1.incrC();
+    vm1.runCommand(&reader0, &writer0);
+    vm1.incrC();
+    try std.testing.expect(ws[0] == 'H');
 
-    // vm1.c = 0; vm1.d = 0; vm1.mem[0] = '}'; vm1.mem[1] = '{';
-    // vm1.runCommand(std.io.getStdIn().reader(), std.io.getStdOut().writer());
+    vm1.c = 0; vm1.d = 0;
+    vm1.runCommand(&reader0, &writer0);
+    vm1.incrC();
+    vm1.runCommand(&reader0, &writer0);
+    vm1.incrC();
+    vm1.runCommand(&reader0, &writer0);
+    vm1.incrC();
+    try std.testing.expect(ws[0] == 'H');
+    try std.testing.expect(ws[1] == 'i');
+
+    vm1.c = 0; vm1.d = 0;
+    vm1.runCommand(&reader0, &writer0);
+    vm1.incrC();
+    vm1.runCommand(&reader0, &writer0);
+    try std.testing.expect(vm1.status == .halt and vm1.status.halt == .eofWrite);
 }
 
 // test "Vm.step noncmd and !*>^_|" {
