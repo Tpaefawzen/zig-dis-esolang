@@ -17,6 +17,7 @@ pub const SyntaxError = error {
 pub fn compileFromReader(
 	/// Specify the `Vm` type here.
 	comptime VmT: type,
+	/// Reader to source of the Dis program.
 	/// `std.io.GenericReader` or `std.io.AnyReader`; has method `readByte`.
 	reader: anytype
 ) (SyntaxError||anyerror)!VmT {
@@ -33,23 +34,23 @@ pub fn compileFromReader(
 	    return err;
     }) {
 	switch ( c ) {
-	33, 42, 62, 94, 95, 123, 124, 125 => {
-	    if ( i > MAX ) return SyntaxError.TooLong;
-	    my_vm.mem[i] = c;
-	    i += 1;
-	},
-	'(' => {
-	    while ( c != ')' ) {
-		c = reader.readByte() catch |err| {
-		    if ( err == error.EndOfStream ) return SyntaxError.UnclosedComment;
-		    return err;
-		};
+	    33, 42, 62, 94, 95, 123, 124, 125 => {
+		if ( i > MAX ) return SyntaxError.TooLong;
+		my_vm.mem[i] = c;
+		i += 1;
+	    },
+	    '(' => {
+		while ( c != ')' ) {
+	    	c = reader.readByte() catch |err| {
+	    	    if ( err == error.EndOfStream ) return SyntaxError.UnclosedComment;
+	    	    return err;
+	    	};
+		}
+	    },
+	    else => {
+		if ( std.ascii.isWhitespace(c) ) {}
+		else return SyntaxError.NotACommand;
 	    }
-	},
-	else => {
-	    if ( std.ascii.isWhitespace(c) ) {}
-	    else return SyntaxError.NotACommand;
-	}
 	}
     }
 }
