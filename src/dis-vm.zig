@@ -24,6 +24,9 @@ pub fn Vm(
 	/// Running status.
 	status: VmStatus = .Running,
 
+	/// Constructor.
+	pub fn init() @This() { return @This(){}; }
+
 	/// Method-chain-style constructor for `Runner`.
 	pub fn runner(self: @This(), comptime Runner: type) Runner {
 	    return .{ .vm = self };
@@ -55,8 +58,9 @@ pub fn Vm(
 	    self.d = Math.increment(self.d, diff);
 	}
 
-	/// Maybe called by Runner{}.step(); reference implementation of
+	/// Maybe called by `Runner{}.step()`; reference implementation of
 	/// executing a command based on current mem[c].
+	/// Note it does not check `self.status`.
 	pub fn runCommand(
 		self: *@This(),
 		/// `null` or something that has method `readByte`.
@@ -248,6 +252,14 @@ test DefaultVm {
     vm1.incrC();
     vm1.runCommand(reader0, writer0);
     try std.testing.expect(vm1.status == .Halt and vm1.status.Halt == .EofWrite);
+
+    // write() test with WriteError.
+    var vm2 = DefaultVm.init();
+    vm2.mem[0] = '{';
+    var ws2: [0]u8 = undefined;
+    const writer2 = @constCast(&std.io.fixedBufferStream(&ws2)).writer();
+    vm2.runCommand(null, writer2);
+    try std.testing.expect(vm2.status.Halt == .WriteError);
 }
 
 // test "Vm.step noncmd and !*>^_|" {
