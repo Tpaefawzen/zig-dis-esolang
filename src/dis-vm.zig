@@ -74,6 +74,7 @@ pub fn Vm(
 	/// executing a command based on current mem[c].
 	/// Note it does not check `self.status`.
 	pub fn runCommand(
+		/// Must `self.status == .Running`.
 		self: *@This(),
 		/// `null` or something that has method `readByte`.
 		/// If `null` is given then it's like a null-device;
