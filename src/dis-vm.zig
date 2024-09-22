@@ -84,6 +84,8 @@ pub fn Vm(
 		/// nothing with no error.
 		writer: anytype
 	) void {
+	    std.debug.assert(self.status == .Running);
+
 	    switch ( decodeCommand(self.mem[self.c]) ) {
 		.Halt => halt(self),
 		.Load => load(self),
@@ -171,19 +173,6 @@ pub const VmStatus = union(VmStatusTag) {
     };
 };
 
-/// Naive runner.
-pub const SimpleRunner = struct {
-    vm: *anyopaque,
-
-    pub fn init(self: *@This()) void { _ = self; }
-
-    pub const RunError = error { NotRunning, ReadErrorFixMe } || anyerror;
-    pub fn step(self: *@This()) RunError!VmStatus {
-	if ( self.vm.status != .running ) return error.NotRunning;
-	self.vm.runCommand();
-    }
-};
-
 /// Eight commands specified in Dis.
 pub const Command = enum { Halt, Load, Rot, Jmp, Nop, Write, Opr, Read, };
 
@@ -235,17 +224,17 @@ test DefaultVm {
     try std.testing.expect(vm1.c == 5 and vm1.d == 5-16+59049);
 
     // Run a command with specified reader and writer.
+    // Note every item in vm1.mem is 0.
+    for ( vm1.mem ) |x| try std.testing.expect(x == 0);
     vm1.runCommand(std.io.getStdIn().reader(), std.io.getStdOut().writer());
     vm1.runCommand(&@constCast(&std.io.getStdIn().reader()), &@constCast(&std.io.getStdOut().writer()));
 
     // Cat test with null reader and null writer
     vm1.c = 0; vm1.d = 0; vm1.mem[0] = '}'; vm1.mem[1] = '{';
+    vm1.status = .Running;
     vm1.runCommand(null, null);
     vm1.incrC();
     vm1.runCommand(null, null);
-    vm1.incrC();
-    vm1.runCommand(null, null);
-    vm1.incrC();
     try std.testing.expect(vm1.status == .Halt);
 
     // Cat test with actual reader and writer
@@ -262,8 +251,11 @@ test DefaultVm {
     vm1.incrC();
     try std.testing.expect(ws[0] == 'H');
 
-    vm1.c = 0; vm1.d = 0;
-    vm1.runCommand(reader0, writer0); // Doing reader/writer polymorphism test too
+    for ( 3..59049 ) |_| {
+	vm1.runCommand(reader0, writer0); vm1.incrC(); // Doing reader/writer polymorphism test too
+    }
+    try std.testing.expect(vm1.c == 0 and vm1.d == 0);
+    vm1.runCommand(reader0, writer0);
     vm1.incrC();
     vm1.runCommand(reader0, writer0);
     vm1.incrC();
@@ -272,7 +264,10 @@ test DefaultVm {
     try std.testing.expect(ws[0] == 'H');
     try std.testing.expect(ws[1] == 'i');
 
-    vm1.c = 0; vm1.d = 0;
+    for ( 3..59049 ) |_| {
+	vm1.runCommand(reader0, writer0); vm1.incrC();
+    }
+    try std.testing.expect(vm1.c == 0 and vm1.d == 0);
     vm1.runCommand(reader0, writer0);
     vm1.incrC();
     vm1.runCommand(reader0, writer0);
