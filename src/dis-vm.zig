@@ -67,17 +67,19 @@ pub fn Vm(
 
 	/// Maybe called by `Runner{}.step()`; reference implementation of
 	/// executing a command based on current mem[c].
-	/// Note it does not check `self.status`.
+	/// Run a program for one step depends on current registers and memory;
+	/// but doesn't increment C and D after execution; it's up to `Runner`'s task.
 	pub fn runCommand(
 		/// Must `self.status == .Running`.
 		self: *@This(),
 		/// `null` or something that has method `readByte`.
 		/// If `null` is given then it's like a null-device;
-		/// treats as if error.EndOfStream were reached.
+		/// `reader.readByte()` returns `error.EndOfStream`.
 		reader: anytype,
 		/// `null` or something that has method `writeByte`.
 		/// If `null` is given then `output` command results in doing
-		/// nothing with no error.
+		/// nothing with no error; `writer.writeByte()` would work
+		/// as if it were: `pub fn writeByte(self: anytype, _: u8) !void {}`.
 		writer: anytype
 	) void {
 	    std.debug.assert(self.status == .Running);
