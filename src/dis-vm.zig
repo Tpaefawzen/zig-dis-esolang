@@ -234,19 +234,19 @@ test DefaultVm {
     try std.testing.expect(ws[0] == 'H');
 
     vm1.c = 0; vm1.d = 0;
-    vm1.runCommand(&reader0, &writer0);
+    vm1.runCommand(reader0, writer0); // Doing reader/writer polymorphism test too
     vm1.incrC();
-    vm1.runCommand(&reader0, &writer0);
+    vm1.runCommand(reader0, writer0);
     vm1.incrC();
-    vm1.runCommand(&reader0, &writer0);
+    vm1.runCommand(reader0, writer0);
     vm1.incrC();
     try std.testing.expect(ws[0] == 'H');
     try std.testing.expect(ws[1] == 'i');
 
     vm1.c = 0; vm1.d = 0;
-    vm1.runCommand(&reader0, &writer0);
+    vm1.runCommand(reader0, writer0);
     vm1.incrC();
-    vm1.runCommand(&reader0, &writer0);
+    vm1.runCommand(reader0, writer0);
     try std.testing.expect(vm1.status == .halt and vm1.status.halt == .eofWrite);
 }
 
