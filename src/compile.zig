@@ -19,7 +19,7 @@ pub fn compileFromReader(
 	comptime VmT: type,
 	/// Reader to source of the Dis program.
 	/// `std.io.GenericReader` or `std.io.AnyReader`; has method `readByte`.
-	reader: anytype
+	reader: std.io.AnyReader
 ) (SyntaxError||anyerror)!VmT {
     const MAX = VmT.Math.MAX;
     var my_vm = VmT{};
@@ -67,7 +67,7 @@ test compileFromReader {
 	\\ !}_}_{{>>>>__>>>!!}^^^}|||{}!!!_
 	;
     var fbs0 = std.io.fixedBufferStream(source0);
-    const reader0 = fbs0.reader();
+    const reader0 = fbs0.reader().any();
     const vm0 = try compileFromReader(DefaultVm, reader0);
     try std.testing.expect(vm0.mem[51] == '_');
     try std.testing.expect(vm0.mem[52] == 0);
@@ -77,14 +77,14 @@ test compileFromReader {
 
 //     const s1 = "";
 //     var f1 = std.io.fixedBufferStream(s1);
-//     const r1 = f1.reader();
+//     const r1 = f1.reader().any();
 //     var vm1 = try compileFromReader(DefaultVm, r1);
 //     try std.testing.expect(vm1.mem[0] == 0);
 //     _ = try vm1.step();
 // 
 //     const s2 = "Illegal!";
 //     var f2 = std.io.fixedBufferStream(s2);
-//     const r2 = f2.reader();
+//     const r2 = f2.reader().any();
 //     try std.testing.expectError(SyntaxError.NotACommand, compileFromReader(DefaultVm, r2));
 // 
 //     const s3 =
@@ -96,11 +96,11 @@ test compileFromReader {
 // 	\\ UNCLOSED EVENTUALLY
 // 	;
 //     var f3 = std.io.fixedBufferStream(s3);
-//     const r3 = f3.reader();
+//     const r3 = f3.reader().any();
 //     try std.testing.expectError(SyntaxError.UnclosedComment, compileFromReader(DefaultVm, r3));
 // 
 //     const s4 = "_" ** 59049;
-//     var m4 = try compileFromReader(DefaultVm, @constCast(&std.io.fixedBufferStream(s4)).reader());
+//     var m4 = try compileFromReader(DefaultVm, @constCast(&std.io.fixedBufferStream(s4)).reader().any());
 //     for ( 0..59049 ) |_| _ = try m4.step();
 //     try std.testing.expect(m4.c == 0);
 // 
@@ -109,12 +109,12 @@ test compileFromReader {
 // 	    SyntaxError.TooLong,
 // 	    compileFromReader(
 // 		    DefaultVm,
-// 		    @constCast(&std.io.fixedBufferStream(s5)).reader()));
+// 		    @constCast(&std.io.fixedBufferStream(s5)).reader().any()));
 // 
 //     const Vm2_8 = vm.Vm(math.Math(u8, 2, 8)).runner(null, null);
 // 
 //     const s6 = "}" ** 256;
-//     var m6 = try compileFromReader(Vm2_8, @constCast(&std.io.fixedBufferStream(s6)).reader());
+//     var m6 = try compileFromReader(Vm2_8, @constCast(&std.io.fixedBufferStream(s6)).reader().any());
 //     _ = try m6.step();
 // 
 //     const s7 = "}" ** 257;
@@ -122,5 +122,5 @@ test compileFromReader {
 // 	    SyntaxError.TooLong,
 // 	    compileFromReader(
 // 		    Vm2_8,
-// 		    @constCast(&std.io.fixedBufferStream(s7)).reader()));
+// 		    @constCast(&std.io.fixedBufferStream(s7)).reader().any()));
 }

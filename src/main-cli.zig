@@ -29,14 +29,14 @@ pub fn main() !void {
     defer file.close();
 
     const Vm = dis.vm.DefaultVm;
-    const vm = dis.compile.compileFromReader(Vm, file.reader()) catch |err| {
+    const vm = dis.compile.compileFromReader(Vm, file.reader().any()) catch |err| {
 	    std.debug.print("{s}: Compile failed: {s}\n", .{ arg0, @errorName(err) });
 	    std.process.exit(2);
 	};
 
     var runningEnv = dis.runners.naiveRunner(vm);
-    const stdin = std.io.getStdIn().reader();
-    const stdout = std.io.getStdOut().writer();
+    const stdin = std.io.getStdIn().reader().any();
+    const stdout = std.io.getStdOut().writer().any();
     while ( try runningEnv.step(stdin, stdout) ) {}
 
     std.process.exit(0);
