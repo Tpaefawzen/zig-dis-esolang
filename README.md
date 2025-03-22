@@ -1,4 +1,4 @@
-# dis-esolang.zig
+# zig-dis-esolang
 Implementation of the esoteric prorgramming language [Dis].
 
 Generalized base, generalized digit, generalized bits of data.
